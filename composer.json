@@ -3,7 +3,7 @@
   "description": "Independent, privacy-conscious SEO toolkit for Kirby 5",
   "type": "kirby-plugin",
   "license": "MIT",
-  "require": {"php": "^8.4", "getkirby/cms": "^5.6.1"},
+  "require": {"php": "^8.4", "getkirby/cms": "^5.6.1", "getkirby/composer-installer": "^1.2"},
   "autoload": {"psr-4": {"TimFeskens\\Seo\\": "src/"}},
   "extra": {"installer-name": "timfeskens-seo", "kirby-cms-path": "kirby"},
   "config": {"allow-plugins": {"getkirby/composer-installer": true}, "sort-packages": true},

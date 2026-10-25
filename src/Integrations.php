@@ -43,7 +43,7 @@ final class Integrations
 
     public static function indexNowEnabled(): bool
     {
-        return !Seo::blocked() && Seo::option('indexnow.enabled', false) === true && self::key() !== null;
+        return Seo::option('indexnow.enabled', false) === true && self::key() !== null;
     }
 
     /** Queue only; publishing never waits on a third-party network request. */

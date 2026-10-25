@@ -24,7 +24,7 @@ function check(bool $condition, string $message): void
     }
 }
 
-function fixture(array $options = []): array
+function fixture(array $options = [], array $siteContent = []): array
 {
     $root = sys_get_temp_dir() . '/kirby-seo-tests-' . getmypid();
     $kirby = new App([
@@ -35,7 +35,7 @@ function fixture(array $options = []): array
             'timfeskens.seo.locale' => 'nl_NL',
         ], $options),
         'site' => [
-            'content' => ['title' => 'Example', 'metaDescription' => 'Site description'],
+            'content' => array_replace(['title' => 'Example', 'metaDescription' => 'Site description'], $siteContent),
             'children' => [
                 ['slug' => 'home', 'template' => 'home', 'content' => ['title' => 'Home']],
                 ['slug' => 'error', 'template' => 'error', 'content' => ['title' => 'Error']],
@@ -174,15 +174,13 @@ check($toggle->toArray()['value'] === true, 'Stored enabled toggle becomes a boo
 $toggle->fill('false');
 check($toggle->toArray()['value'] === false, 'Stored disabled toggle becomes a boolean');
 
-[$kirby, $page] = fixture(['timfeskens.seo.noindex' => true, 'timfeskens.seo.llms.enabled' => true, 'timfeskens.seo.llms.include' => fn () => true, 'timfeskens.seo.indexnow.enabled' => true, 'timfeskens.seo.indexnow.key' => 'abcdefgh12345678']);
-check(!Seo::indexable($page), 'Environment noindex takes precedence');
-check(str_contains(Seo::metadata($page)['tags']['robots'], 'noindex'), 'Noindex meta');
-check(str_contains(Endpoints::robots()->body(), 'Disallow: /'), 'Preview robots disallow');
-check(!str_contains(Endpoints::sitemap()->body(), '<url>'), 'Preview sitemap empty');
-$blockedField = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $page]);
-check($blockedField->toArray()['blocked'] === true, 'Panel exposes environment indexing protection');
-check(Endpoints::llms()->code() === 404, 'Preview cannot export llms');
-check(!Integrations::indexNowEnabled(), 'Preview cannot submit IndexNow');
+[$kirby, $page] = fixture(siteContent: ['robotsIndex' => 'false']);
+check(!Seo::indexable($page), 'Global Panel indexing setting applies to pages');
+check(str_contains(Seo::metadata($page)['tags']['robots'], 'noindex'), 'Global Panel setting emits noindex');
+check(!str_contains(Endpoints::sitemap()->body(), '<url>'), 'Global Panel noindex empties sitemap');
+$override = $page->clone(['content' => array_replace($page->content()->toArray(), ['robotsIndex' => 'true'])]);
+check(Seo::indexable($override), 'Page Panel setting overrides global noindex');
+check(!str_contains(Seo::metadata($override)['tags']['robots'], 'noindex'), 'Explicit page permission emits indexable metadata');
 
 [$kirby, $page] = fixture([
     'timfeskens.seo.llms.enabled' => true,
@@ -242,9 +240,9 @@ check($suggestion['title'] === 'Suggested', 'AI response sanitized');
 check($input['text'] === 'Only these facts', 'Only configured AI source sent');
 check($page->metaTitle()->isEmpty(), 'AI never writes metadata');
 
-[$kirby, $page] = fixture(['timfeskens.seo.noindex' => true]);
+[$kirby, $page] = fixture();
 $kirby->call('robots.txt');
-check($kirby->response()->header('X-Robots-Tag') === 'noindex, nofollow, noarchive', 'Global noindex response header');
+check($kirby->response()->header('X-Robots-Tag') === null, 'No configuration-level robots header overrides Panel settings');
 
 $kirby = new App([
     'roots' => ['index' => sys_get_temp_dir() . '/kirby-seo-multilang-' . getmypid()],

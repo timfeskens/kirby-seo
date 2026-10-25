@@ -11,7 +11,7 @@ own license for public use.
 - Escaped titles, descriptions, canonical URLs, Open Graph and Twitter/X cards
 - Dutch/English SEO tabs with separate live Google, Facebook and Twitter/X previews
 - Automatic 1200 × 630 social image crops
-- XML sitemap, `robots.txt`, per-page robots rules, global preview protection
+- XML sitemap, `robots.txt`, global and per-page robots settings
 - Language-aware URLs, translated slugs, `hreflang` and sitemap alternates
 - WebSite/WebPage/breadcrumb JSON-LD and a site-specific schema extension callback
 - Optional AI suggestions, queued IndexNow updates, and allowlisted LLM endpoints
@@ -93,7 +93,6 @@ return [
         'canonicalBase' => 'https://example.com',
         'locale' => 'nl_NL', // single-language sites; multilingual sites use Kirby's locale
         'description' => 'An optional default description.',
-        'noindex' => false,
     ],
 ];
 ```
@@ -104,13 +103,11 @@ request hostnames. A canonical base may include an installation subdirectory. Fo
 multilingual domains, supply a map, e.g. `['nl' => 'https://example.nl', 'en' =>
 'https://example.com']`; Kirby still supplies language paths and translated slugs.
 
-**Preview/staging:** set `noindex => true` in environment-specific configuration.
-It overrides editor choices, adds `X-Robots-Tag` to Kirby responses, emits noindex
-metadata, returns an empty sitemap and blocks IndexNow/LLM exports. Existing server
-headers remain valuable for static assets served without Kirby. `noindex` and
-`robots.txt` are not security: protect confidential sites with authentication.
-A robots disallow can prevent crawlers from seeing a noindex instruction; removing
-already-indexed URLs may require temporarily allowing crawls or removal tools.
+Manage indexing in the Panel's global and per-page robots settings. Global
+**Indexing → Disallow** applies by default; an explicit page setting can override
+it. The plugin does not add an environment-level indexing override or blanket
+robots header. Robots directives are not security: protect confidential sites
+with authentication.
 
 ## Metadata cascade and compatibility
 
@@ -149,9 +146,8 @@ available content modification dates, and existing language versions with
 `xhtml:link` alternates. Drafts, error pages, noindex pages, custom `include`
 exclusions and URLs canonicalized elsewhere are omitted; unlisted pages require
 explicit indexing permission. Alternates follow those same exclusion rules.
-`noindex => true` returns an empty sitemap and does not advertise it in robots.
-The Panel displays a notice when this configuration-level protection is active;
-changing individual page or site selectors does not bypass it.
+Global **Indexing → Disallow** produces an empty sitemap unless individual pages
+explicitly allow indexing. The sitemap follows the same Panel settings as metadata.
 Disable these routes with `'sitemap' => false` if another sitemap owns the URL.
 
 Listed pages and home are indexable by default; unlisted pages require explicit
@@ -236,7 +232,7 @@ instructions; provider adapters should also protect against prompt injection.
 The key verification file is routed automatically. Eligible updates/status/slug
 changes and impending deletions queue canonical URLs in the plugin's Kirby cache.
 Use persistent cache storage in container deployments. Draft/private content is
-not queued, and environment noindex wins. The verification key is public by
+not queued. The verification key is public by
 design; it is not an authentication secret.
 
 Flush from a **serialized, scheduled CLI job** after bootstrapping your site:
@@ -281,7 +277,6 @@ All options below live under `timfeskens.seo`:
 | `canonicalBase` | `null` | Trusted origin/base or language-code map |
 | `locale` | `en_US` | Single-language locale |
 | `description` | `''` | Fallback description |
-| `noindex` | `false` | Environment-wide indexing/export block |
 | `include` | `null` | Optional public-page eligibility callback |
 | `sitemap` / `robots` | `true` | Enable discovery routes |
 | `schema` | `null` | Graph extension callback |

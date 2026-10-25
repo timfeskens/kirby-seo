@@ -1,11 +1,18 @@
 # Changelog
 
+## 0.1.6 — 2026-10-25
+
+- Manage indexing exclusively through the global and per-page robots settings in the Panel; explicit page choices can override global defaults.
+- Remove the configuration-level indexing override, its preview notice and blanket robots response header.
+- Remove the matching hard block from discovery routes and optional integrations; IndexNow and LLM exports remain opt-in and respect page eligibility.
+- Preserve draft/error exclusions, canonical sitemap exclusions and the Markdown export's own noindex header.
+- Test global indexing inheritance, explicit page permission and the absence of a blanket robots header.
+
 ## 0.1.5 — 2026-10-25
 
 - Distinguish global site SEO settings from page overrides with scope-specific labels and help text.
 - Group search, social sharing, robots, social profiles (site) and advanced/inheritance settings (pages) into separate sections.
 - Offer Automatic, Allow and Disallow at the root; retain Inherit / automatic on pages without changing stored values or indexing behavior.
-- Explain configuration-level indexing protection and its intentionally empty sitemap in the Panel preview.
 - Preserve responsive 66/33 columns and test grouped layouts, root/page options and blocked sitemap output.
 
 ## 0.1.4 — 2026-10-25

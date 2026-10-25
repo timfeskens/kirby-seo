@@ -60,8 +60,8 @@ final class Endpoints
 
     public static function robots(): Response
     {
-        $body = Seo::blocked() ? "User-agent: *\nDisallow: /\n" : "User-agent: *\nAllow: /\nDisallow: /panel\nDisallow: /api\nDisallow: /kirby\nDisallow: /site\nDisallow: /content\nDisallow: /vendor\n";
-        if (!Seo::blocked() && Seo::option('sitemap', true)) {
+        $body = "User-agent: *\nAllow: /\nDisallow: /panel\nDisallow: /api\nDisallow: /kirby\nDisallow: /site\nDisallow: /content\nDisallow: /vendor\n";
+        if (Seo::option('sitemap', true)) {
             $home = Seo::canonical(App::instance()->site()->homePage());
             $body .= 'Sitemap: ' . rtrim($home, '/') . "/sitemap.xml\n";
         }
@@ -77,7 +77,7 @@ final class Endpoints
 
     public static function llms(): Response
     {
-        if (Seo::blocked() || !Seo::option('llms.enabled', false)) {
+        if (!Seo::option('llms.enabled', false)) {
             return new Response('Not found', 'text/plain', 404);
         }
         $site = App::instance()->site();

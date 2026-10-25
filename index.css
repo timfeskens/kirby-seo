@@ -3,7 +3,6 @@
   .k-sections > .k-column { grid-column: 1 / -1; }
 }
 .tf-seo-previews { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
-.tf-seo-protection { margin-block-end: 1rem; overflow-wrap: anywhere; }
 .tf-seo-card { background: var(--color-background); border: 1px solid var(--color-border); border-radius: .375rem; padding: 1rem; overflow-wrap: anywhere; }
 .tf-seo-card h3 { font-weight: 600; margin-block-end: .75rem; }
 .tf-seo-card p { margin-block: .4rem; line-height: 1.45; }

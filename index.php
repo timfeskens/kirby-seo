@@ -25,7 +25,6 @@ Kirby::plugin('timfeskens/seo', [
         'canonicalBase' => null,
         'locale' => 'en_US',
         'description' => '',
-        'noindex' => false,
         'sitemap' => true,
         'robots' => true,
         'schema' => null,
@@ -95,7 +94,6 @@ Kirby::plugin('timfeskens/seo', [
                     return Preview::metadata($model, []);
                 },
                 'ai' => fn (): bool => Seo::option('ai.enabled', false) === true,
-                'blocked' => fn (): bool => Seo::blocked(),
             ],
             'api' => function (): array {
                 $model = $this->model();
@@ -157,10 +155,5 @@ Kirby::plugin('timfeskens/seo', [
             Integrations::enqueue($newPage);
         },
         'page.delete:before' => function (Page $page): void { Integrations::enqueue($page); },
-        'route:after' => function ($route, $path, $method, $result, $final): void {
-            if (Seo::blocked()) {
-                kirby()->response()->header('X-Robots-Tag', 'noindex, nofollow, noarchive');
-            }
-        },
     ],
 ]);

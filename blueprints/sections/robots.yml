@@ -6,8 +6,8 @@ fields:
       en: Robots settings
       nl: Robotsinstellingen
     help:
-      en: Control indexing, link following and the use of images and text snippets. Environment-level indexing protection always takes precedence.
-      nl: Bepaal of zoekmachines mogen indexeren, links volgen en afbeeldingen en tekstfragmenten gebruiken. Indexeringsbeveiliging in de configuratie heeft altijd voorrang.
+      en: Control indexing, link following and the use of images and text snippets. Pages can override the global defaults; drafts and error pages are always excluded.
+      nl: Bepaal of zoekmachines mogen indexeren, links volgen en afbeeldingen en tekstfragmenten gebruiken. Pagina’s kunnen afwijken van de globale standaard; concepten en foutpagina’s worden altijd uitgesloten.
   robotsIndex:
     label:
       en: Indexing

@@ -67,14 +67,9 @@ final class Seo
         return $url;
     }
 
-    public static function blocked(): bool
-    {
-        return self::option('noindex', false) === true;
-    }
-
     public static function allowed(Page $page, string $rule, ?string $language = null): bool
     {
-        if (self::blocked() || $page->isDraft() || $page->isErrorPage()) {
+        if ($page->isDraft() || $page->isErrorPage()) {
             return false;
         }
         $value = self::field($page, 'robots' . ucfirst($rule), $language);

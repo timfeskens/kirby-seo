@@ -9,7 +9,7 @@ panel.plugin("timfeskens/seo", {
     },
     "timfeskens-seo-toggle": { extends: "k-toggle-field" },
     "timfeskens-seo-preview": {
-      props: { label: String, preview: Object, endpoints: Object, ai: Boolean, blocked: Boolean },
+      props: { label: String, preview: Object, endpoints: Object, ai: Boolean },
       data() {
         return { current: this.preview, timer: null, request: 0, suggestion: null, busy: false, error: "" };
       },
@@ -64,7 +64,6 @@ panel.plugin("timfeskens/seo", {
         let domain = meta.canonical || "";
         try { domain = new URL(domain).hostname; } catch (_) {}
         return h("k-field", { props: { label: this.label } }, [
-          this.blocked ? h("k-box", { props: { theme: "notice" }, attrs: { role: "note" }, class: "tf-seo-protection" }, this.nl ? "Indexering is geblokkeerd in de configuratie. Deze beveiliging heeft voorrang op de SEO-instellingen; de sitemap blijft leeg." : "Indexing is blocked in the configuration. This protection overrides the SEO settings; the sitemap remains empty.") : null,
           h("div", { class: "tf-seo-previews" }, [
             card("Google", [
               h("p", { class: "tf-seo-url" }, meta.canonical),

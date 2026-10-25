@@ -145,13 +145,6 @@ async function realPanel(browser) {
     assert.match(alias.headers().location, /\/sitemap.xml$/, 'Sitemap alias target');
     const robots = await page.request.get(`http://127.0.0.1:${port}/robots.txt`);
     assert.match(await robots.text(), /Sitemap: https:\/\/example.test\/sitemap.xml/, 'Sitemap advertised in robots');
-    await page.context().addCookies([{name: 'seo_test_blocked', value: '1', url: `http://127.0.0.1:${port}`}]);
-    await page.goto(`http://127.0.0.1:${port}/panel/site?tab=seo`);
-    await page.locator('.tf-seo-protection').waitFor();
-    assert.match(await page.locator('.tf-seo-protection').innerText(), /sitemap blijft leeg/, 'Explain blocked sitemap in Panel');
-    await responsiveLayout(page, 'site-blocked');
-    const blockedSitemap = await page.request.get(`http://127.0.0.1:${port}/sitemap.xml`);
-    assert.doesNotMatch(await blockedSitemap.text(), /<url>/, 'Environment protection keeps sitemap empty');
     assert.deepEqual(errors, [], 'No real Panel browser errors');
   } catch (error) {
     console.error(errors);

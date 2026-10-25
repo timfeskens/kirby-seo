@@ -1,9 +1,16 @@
-extends: tabs/seo-site
+label: SEO
+icon: search
 columns:
   settings:
+    width: 2/3
     sections:
-      seoSettings:
+      seoSearch:
+        extends: sections/seo-search
         fields:
+          searchHeading:
+            help:
+              en: Settings for this page. Empty values use inherited defaults from the site or a parent page.
+              nl: Instellingen voor deze pagina. Lege waarden gebruiken de overgenomen standaard van de website of een bovenliggende pagina.
           metaTitle:
             label:
               en: Custom page title
@@ -15,12 +22,34 @@ columns:
               nl: Titelpatroon gebruiken
             type: timfeskens-seo-toggle
             default: true
+      seoSocial:
+        extends: sections/seo-social
+        fields:
+          ogSiteName: false
+          ogImage:
+            query: page.files.add(site.files).add(site.index.files).filterBy('type', 'image')
           useOgTemplate:
             label:
               en: Use social title pattern
               nl: Titelpatroon voor sociale media gebruiken
             type: timfeskens-seo-toggle
             default: true
+          twitterAuthor:
+            label:
+              en: Twitter/X author
+              nl: Twitter/X-auteur
+            type: text
+            before: '@'
+      seoRobots:
+        extends: sections/seo-robots
+      seoAdvanced:
+        type: fields
+        fields:
+          advancedHeading:
+            type: headline
+            label:
+              en: Advanced and inheritance
+              nl: Geavanceerd en overerving
           canonicalUrl:
             label:
               en: Canonical URL override
@@ -29,16 +58,6 @@ columns:
             help:
               en: Leave empty unless this content has its original version elsewhere.
               nl: Laat leeg, tenzij de oorspronkelijke versie van deze inhoud ergens anders staat.
-          ogSiteName: false
-          socialMediaAccounts: false
-          ogImage:
-            query: page.files.add(site.files).add(site.index.files).filterBy('type', 'image')
-          twitterAuthor:
-            label:
-              en: Twitter/X author
-              nl: Twitter/X-auteur
-            type: text
-            before: '@'
           metaInherit:
             label:
               en: Pass these settings to child pages
@@ -65,3 +84,8 @@ columns:
               robots:
                 en: Robots rules
                 nl: Indexeringsinstellingen
+  previews:
+    width: 1/3
+    sections:
+      seoPreviews:
+        extends: sections/seo-previews

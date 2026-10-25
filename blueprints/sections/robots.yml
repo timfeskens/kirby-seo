@@ -1,0 +1,34 @@
+type: fields
+fields:
+  robotsHeading:
+    type: headline
+    label:
+      en: Robots settings
+      nl: Robotsinstellingen
+    help:
+      en: Control indexing, link following and the use of images and text snippets. Environment-level indexing protection always takes precedence.
+      nl: Bepaal of zoekmachines mogen indexeren, links volgen en afbeeldingen en tekstfragmenten gebruiken. Indexeringsbeveiliging in de configuratie heeft altijd voorrang.
+  robotsIndex:
+    label:
+      en: Indexing
+      nl: Indexeren
+    extends: fields/seo-robots
+    width: 1/2
+  robotsFollow:
+    label:
+      en: Follow links
+      nl: Links volgen
+    extends: fields/seo-robots
+    width: 1/2
+  robotsImageindex:
+    label:
+      en: Image indexing
+      nl: Afbeeldingen indexeren
+    extends: fields/seo-robots
+    width: 1/2
+  robotsSnippet:
+    label:
+      en: Text snippets
+      nl: Tekstfragmenten tonen
+    extends: fields/seo-robots
+    width: 1/2

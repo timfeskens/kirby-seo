@@ -1,0 +1,28 @@
+type: fields
+fields:
+  profilesHeading:
+    type: headline
+    label:
+      en: Social profiles
+      nl: Sociale profielen
+  socialMediaAccounts:
+    label:
+      en: Social profiles
+      nl: Sociale media
+    type: object
+    fields:
+      twitter:
+        label: Twitter/X
+        type: url
+      facebook:
+        label: Facebook
+        type: url
+      instagram:
+        label: Instagram
+        type: url
+      youtube:
+        label: YouTube
+        type: url
+      linkedin:
+        label: LinkedIn
+        type: url

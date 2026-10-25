@@ -1,0 +1,23 @@
+type: fields
+fields:
+  searchHeading:
+    type: headline
+    label:
+      en: Search engines
+      nl: Zoekmachines
+  metaTemplate:
+    label:
+      en: Title pattern
+      nl: Titelpatroon
+    type: timfeskens-seo-text
+    default: '{{ title }} - {{ site.title }}'
+    placeholder: '{{ title }} - {{ site.title }}'
+    help:
+      en: 'Use {{ title }}, {{ page.title }} and {{ site.title }}. Default: {{ title }} - {{ site.title }}.'
+      nl: 'Gebruik {{ title }}, {{ page.title }} en {{ site.title }}. Standaard: {{ title }} - {{ site.title }}.'
+  metaDescription:
+    label:
+      en: Meta description
+      nl: Meta-omschrijving
+    type: timfeskens-seo-textarea
+    buttons: false

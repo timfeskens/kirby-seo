@@ -24,6 +24,13 @@ content area is 55rem or narrower, previews move below the settings in one colum
 Normal input character counters remain; the Google preview has no suggested-length
 counter. The obsolete archive control is no longer shown, but existing
 `robotsArchive` values remain supported without modifying stored content.
+The site tab is **Global SEO settings** (Dutch: **Globale SEO-instellingen**),
+while page tabs describe per-page overrides. Separate sections group search
+engines, social sharing, robots and social profiles; pages instead have an
+advanced/inheritance section for canonical URLs and child-page defaults.
+Root robots selectors offer **Automatic / Allow / Disallow**, with no misleading
+inheritance choice. Page selectors retain **Inherit / automatic**. Automatic at
+the root uses the plugin's safe defaults, not a parent site's settings.
 
 ## Installation
 
@@ -143,6 +150,8 @@ available content modification dates, and existing language versions with
 exclusions and URLs canonicalized elsewhere are omitted; unlisted pages require
 explicit indexing permission. Alternates follow those same exclusion rules.
 `noindex => true` returns an empty sitemap and does not advertise it in robots.
+The Panel displays a notice when this configuration-level protection is active;
+changing individual page or site selectors does not bypass it.
 Disable these routes with `'sitemap' => false` if another sitemap owns the URL.
 
 Listed pages and home are indexable by default; unlisted pages require explicit

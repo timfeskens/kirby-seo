@@ -1,0 +1,55 @@
+type: fields
+fields:
+  socialHeading:
+    type: headline
+    label:
+      en: Social sharing
+      nl: Delen op sociale media
+  ogTemplate:
+    label:
+      en: Social title pattern
+      nl: Titelpatroon voor sociale media
+    type: timfeskens-seo-text
+    default: '{{ title }}'
+    placeholder: '{{ title }}'
+    help: '{{ title }}'
+  ogDescription:
+    label:
+      en: Social description
+      nl: Omschrijving voor sociale media
+    type: timfeskens-seo-textarea
+    buttons: false
+  ogSiteName:
+    label:
+      en: Social site name
+      nl: Sitenaam voor sociale media
+    type: timfeskens-seo-text
+    default: '{{ site.title }}'
+    placeholder: '{{ site.title }}'
+  ogImage:
+    label:
+      en: Social image
+      nl: Afbeelding voor sociale media
+    type: files
+    multiple: false
+    query: site.files.add(site.index.files).filterBy('type', 'image')
+    help:
+      en: Cropped to 1200 × 630 pixels. Leave enough space around your subject.
+      nl: Wordt bijgesneden naar 1200 × 630 pixels. Laat genoeg ruimte rond het onderwerp.
+  twitterCardType:
+    label:
+      en: Twitter/X card
+      nl: Twitter/X-kaart
+    type: timfeskens-seo-select
+    default: default
+    placeholder:
+      en: Automatic (large image when available, otherwise compact)
+      nl: Automatisch (grote afbeelding indien beschikbaar, anders compact)
+    options:
+      default:
+        en: Automatic (large image when available, otherwise compact)
+        nl: Automatisch (grote afbeelding indien beschikbaar, anders compact)
+      summary: Compact
+      summary_large_image:
+        en: Large image
+        nl: Grote afbeelding

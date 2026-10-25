@@ -1,0 +1,8 @@
+extends: fields/seo-robots
+placeholder:
+  en: Automatic
+  nl: Automatisch
+options:
+  default:
+    en: Automatic
+    nl: Automatisch

@@ -1,0 +1,7 @@
+type: fields
+fields:
+  seoPreview:
+    label:
+      en: Preview
+      nl: Voorbeeld
+    type: timfeskens-seo-preview

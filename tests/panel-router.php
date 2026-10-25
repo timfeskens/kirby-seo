@@ -28,7 +28,7 @@ if (str_starts_with($path, '/kirby/') || preg_match('~^/media/panel/[^/]+/(.*)$~
 $kirby = new Kirby\Cms\App([
     'roots' => ['index' => $root],
     'urls' => ['index' => 'http://' . $_SERVER['HTTP_HOST']],
-    'options' => ['debug' => true, 'panel.install' => false, 'api.allowImpersonation' => true, 'timfeskens.seo.canonicalBase' => 'https://example.test'],
+    'options' => ['debug' => true, 'panel.install' => false, 'api.allowImpersonation' => true, 'timfeskens.seo.canonicalBase' => 'https://example.test', 'timfeskens.seo.noindex' => ($_COOKIE['seo_test_blocked'] ?? '') === '1'],
     'blueprints' => [
         'site' => ['title' => 'Test', 'tabs' => ['seo' => 'tabs/seo-site']],
         'pages/default' => ['title' => 'Test', 'tabs' => ['seo' => 'tabs/seo-page']],

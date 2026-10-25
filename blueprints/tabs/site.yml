@@ -1,16 +1,26 @@
-label: SEO
+label:
+  en: Global SEO settings
+  nl: Globale SEO-instellingen
 icon: search
 columns:
   settings:
     width: 2/3
     sections:
-      seoSettings:
-        extends: sections/seo-settings
+      seoSearch:
+        extends: sections/seo-search
+        fields:
+          searchHeading:
+            help:
+              en: Global defaults for the entire website. Individual pages can override these settings.
+              nl: Standaardinstellingen voor de hele website. Afzonderlijke pagina’s kunnen hiervan afwijken.
+      seoSocial:
+        extends: sections/seo-social
+      seoRobots:
+        extends: sections/seo-robots-site
+      seoProfiles:
+        extends: sections/seo-profiles
   previews:
     width: 1/3
-    fields:
-      seoPreview:
-        label:
-          en: Preview
-          nl: Voorbeeld
-        type: timfeskens-seo-preview
+    sections:
+      seoPreviews:
+        extends: sections/seo-previews

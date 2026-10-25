@@ -97,7 +97,7 @@ try {
 
 // Instantiate a real Kirby field and resolve blueprint extensions.
 $blueprint = Kirby\Cms\Blueprint::load('tabs/seo-page');
-check(isset($blueprint['columns']['settings']['sections']['seoSettings']['fields']['canonicalUrl']), 'Page blueprint registered');
+check(isset($blueprint['columns']['settings']['sections']['seoAdvanced']['fields']['canonicalUrl']), 'Page blueprint registered');
 $field = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $page]);
 check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
 $siteField = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
@@ -117,6 +117,15 @@ foreach (['site', 'page'] as $type) {
     check(count($fields->toArray()) > 5, 'SEO ' . $type . ' blueprint resolves all fields');
     check(isset($fields->toProps()['seopreview']['preview']), 'SEO ' . $type . ' Panel props resolve');
     $props = $fields->toProps();
+    check($blueprint->tabs()[0]['label'] === ($type === 'site' ? 'Global SEO settings' : 'SEO'), $type . ' SEO tab label distinguishes scope');
+    foreach (['searchheading', 'socialheading', 'robotsheading'] as $heading) {
+        check(isset($props[$heading]), $type . ' grouped SEO heading: ' . $heading);
+    }
+    foreach (['robotsindex', 'robotsfollow', 'robotsimageindex', 'robotssnippet'] as $name) {
+        $option = array_values(array_filter($props[$name]['options'], fn ($option) => $option['value'] === 'default'))[0];
+        check($option['text'] === ($type === 'site' ? 'Automatic' : 'Inherit / automatic'), $type . ' robots default label: ' . $name);
+        check(count($props[$name]['options']) === 3, $type . ' retains automatic/allow/disallow robots options');
+    }
     check(!isset($props['robotsarchive']), $type . ' obsolete archive control absent');
     if ($type === 'page') {
         foreach (['metatitle', 'usetitletemplate', 'useogtemplate', 'canonicalurl', 'twitterauthor', 'metainherit'] as $name) {
@@ -170,6 +179,8 @@ check(!Seo::indexable($page), 'Environment noindex takes precedence');
 check(str_contains(Seo::metadata($page)['tags']['robots'], 'noindex'), 'Noindex meta');
 check(str_contains(Endpoints::robots()->body(), 'Disallow: /'), 'Preview robots disallow');
 check(!str_contains(Endpoints::sitemap()->body(), '<url>'), 'Preview sitemap empty');
+$blockedField = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $page]);
+check($blockedField->toArray()['blocked'] === true, 'Panel exposes environment indexing protection');
 check(Endpoints::llms()->code() === 404, 'Preview cannot export llms');
 check(!Integrations::indexNowEnabled(), 'Preview cannot submit IndexNow');
 

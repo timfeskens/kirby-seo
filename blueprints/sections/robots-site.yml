@@ -1,0 +1,10 @@
+extends: sections/seo-robots
+fields:
+  robotsIndex:
+    extends: fields/seo-robots-global
+  robotsFollow:
+    extends: fields/seo-robots-global
+  robotsImageindex:
+    extends: fields/seo-robots-global
+  robotsSnippet:
+    extends: fields/seo-robots-global

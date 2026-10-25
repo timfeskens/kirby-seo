@@ -96,6 +96,14 @@ async function realPanel(browser) {
     await page.goto(`http://127.0.0.1:${port}/panel/site?tab=seo`);
     await page.getByRole('region', {name: 'Google', exact: true}).waitFor();
     assert.equal(await page.getByText(/Het veldtype .* bestaat niet/).count(), 0, 'No unknown field error in real Panel');
+    await page.getByRole('heading', {name: 'Zoekmachines', exact: true}).waitFor();
+    await page.getByRole('heading', {name: 'Delen op sociale media', exact: true}).waitFor();
+    await page.getByRole('heading', {name: 'Robotsinstellingen', exact: true}).waitFor();
+    await page.getByRole('heading', {name: 'Sociale profielen', exact: true}).waitFor();
+    assert.equal(await page.getByText(/Overnemen/).count(), 0, 'Global settings have no inheritance option');
+    for (const name of ['robotsindex', 'robotsfollow', 'robotsimageindex', 'robotssnippet']) {
+      assert.equal(await page.locator(`select[name="${name}"] option[value="default"]`).innerText(), ' Automatisch ', 'Global robots automatic label');
+    }
     await responsiveLayout(page, 'site');
     for (const [name, expected] of [['metatemplate', '{{ title }} - {{ site.title }}'], ['ogtemplate', '{{ title }}'], ['ogsitename', '{{ site.title }}']]) {
       const input = page.locator(`input[name="${name}"]`);
@@ -116,6 +124,9 @@ async function realPanel(browser) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Real Panel mobile overflow');
     await page.goto(`http://127.0.0.1:${port}/panel/pages/test?tab=seo`);
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('Test page - Example', {exact: true}).waitFor();
+    assert.match(await page.locator('select[name="robotsindex"] option[value="default"]').innerText(), /Overnemen/, 'Page robots retain inheritance');
+    assert.equal(await page.getByRole('heading', {name: 'Sociale profielen', exact: true}).count(), 0, 'Profiles only on site');
+    await page.getByRole('heading', {name: 'Geavanceerd en overerving', exact: true}).waitFor();
     await responsiveLayout(page, 'page');
     assert.equal(await page.locator('input[name="usetitletemplate"]').isChecked(), true, 'Page title pattern enabled by default');
     assert.equal(await page.locator('input[name="useogtemplate"]').isChecked(), true, 'Page social pattern enabled by default');
@@ -134,6 +145,13 @@ async function realPanel(browser) {
     assert.match(alias.headers().location, /\/sitemap.xml$/, 'Sitemap alias target');
     const robots = await page.request.get(`http://127.0.0.1:${port}/robots.txt`);
     assert.match(await robots.text(), /Sitemap: https:\/\/example.test\/sitemap.xml/, 'Sitemap advertised in robots');
+    await page.context().addCookies([{name: 'seo_test_blocked', value: '1', url: `http://127.0.0.1:${port}`}]);
+    await page.goto(`http://127.0.0.1:${port}/panel/site?tab=seo`);
+    await page.locator('.tf-seo-protection').waitFor();
+    assert.match(await page.locator('.tf-seo-protection').innerText(), /sitemap blijft leeg/, 'Explain blocked sitemap in Panel');
+    await responsiveLayout(page, 'site-blocked');
+    const blockedSitemap = await page.request.get(`http://127.0.0.1:${port}/sitemap.xml`);
+    assert.doesNotMatch(await blockedSitemap.text(), /<url>/, 'Environment protection keeps sitemap empty');
     assert.deepEqual(errors, [], 'No real Panel browser errors');
   } catch (error) {
     console.error(errors);
@@ -159,7 +177,7 @@ async function responsiveLayout(page, model) {
         const box = node.getBoundingClientRect();
         return {x: box.x, y: box.y, width: box.width, bottom: box.bottom, right: box.right};
       };
-      const settings = document.querySelector('.k-section-name-seoSettings').closest('.k-column');
+      const settings = document.querySelector('.k-section-name-seoSearch').closest('.k-column');
       const previews = document.querySelector('.tf-seo-previews').closest('.k-section').closest('.k-column');
       return {settings: rect(settings), previews: rect(previews), cards: [...document.querySelectorAll('.tf-seo-previews > section')].map(rect), overflow: document.documentElement.scrollWidth > innerWidth};
     });

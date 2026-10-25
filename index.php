@@ -40,7 +40,13 @@ Kirby::plugin('timfeskens/seo', [
         'tabs/seo-site' => __DIR__ . '/blueprints/tabs/site.yml',
         'tabs/seo-page' => __DIR__ . '/blueprints/tabs/page.yml',
         'fields/seo-robots' => __DIR__ . '/blueprints/fields/robots.yml',
-        'sections/seo-settings' => __DIR__ . '/blueprints/sections/settings.yml',
+        'fields/seo-robots-global' => __DIR__ . '/blueprints/fields/robots-global.yml',
+        'sections/seo-search' => __DIR__ . '/blueprints/sections/search.yml',
+        'sections/seo-social' => __DIR__ . '/blueprints/sections/social.yml',
+        'sections/seo-robots' => __DIR__ . '/blueprints/sections/robots.yml',
+        'sections/seo-robots-site' => __DIR__ . '/blueprints/sections/robots-site.yml',
+        'sections/seo-profiles' => __DIR__ . '/blueprints/sections/profiles.yml',
+        'sections/seo-previews' => __DIR__ . '/blueprints/sections/previews.yml',
     ],
     'pageMethods' => [
         'seo' => function (): array { return Seo::metadata($this); },
@@ -89,6 +95,7 @@ Kirby::plugin('timfeskens/seo', [
                     return Preview::metadata($model, []);
                 },
                 'ai' => fn (): bool => Seo::option('ai.enabled', false) === true,
+                'blocked' => fn (): bool => Seo::blocked(),
             ],
             'api' => function (): array {
                 $model = $this->model();

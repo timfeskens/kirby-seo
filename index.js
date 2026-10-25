@@ -69,7 +69,6 @@ panel.plugin("timfeskens/seo", {
               h("p", { class: "tf-seo-url" }, meta.canonical),
               h("p", { class: "tf-seo-title" }, meta.title),
               h("p", tags.description || (this.nl ? "Vul een omschrijving in." : "Add a description.")),
-              h("small", `${[...(meta.title || "")].length} / ~60 · ${[...(tags.description || "")].length} / ~160 ${this.nl ? "tekens" : "characters"}`),
             ], "google"),
             card("Facebook", [
               image(tags["og:image"], tags["og:image:alt"]),

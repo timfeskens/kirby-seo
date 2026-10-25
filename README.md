@@ -16,8 +16,14 @@ own license for public use.
 - WebSite/WebPage/breadcrumb JSON-LD and a site-specific schema extension callback
 - Optional AI suggestions, queued IndexNow updates, and allowlisted LLM endpoints
 
-Previews and character counts are guidance, not ranking scores or guarantees.
+Previews are guidance, not ranking scores or guarantees.
 Google and social platforms can choose different titles, snippets and images.
+SEO tabs use a two-column layout: approximately two-thirds settings and one-third
+previews, with Google, Facebook and Twitter/X stacked vertically. When the Panel
+content area is 55rem or narrower, previews move below the settings in one column.
+Normal input character counters remain; the Google preview has no suggested-length
+counter. The obsolete archive control is no longer shown, but existing
+`robotsArchive` values remain supported without modifying stored content.
 
 ## Installation
 

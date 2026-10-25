@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 — 2026-10-25
+
+- Arrange site/page SEO tabs into approximately 66% settings and 33% previews, with Google, Facebook and Twitter/X stacked in the right column.
+- Switch to full-width settings followed by previews when the available Panel area is too narrow; preserve page-specific fields and inheritance.
+- Remove the suggested title/description character counts from the Google preview while retaining standard input counters.
+- Remove the obsolete archive control from the Panel; retain backend support for existing `robotsArchive` values.
+- Test real Panel geometry from 375px through 1920px, long titles and legacy robots compatibility.
+
 ## 0.1.3 — 2026-10-25
 
 - Use consistently kebab-case Panel field registration and exercise real Kirby Panel loading in Chromium.

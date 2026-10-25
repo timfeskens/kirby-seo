@@ -66,7 +66,7 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.evaluate(() => window.app.content.metatitle), 'Changed <script>window.pwned=true</script>', 'Suggestions never overwrite fields');
     assert.deepEqual(errors, [], 'No browser errors');
     await realPanel(browser);
-    console.log('Passed Panel browser checks: real Kirby Panel registration, filled defaults, Google/Facebook/Twitter previews, safe text, mobile layout, manual AI review.');
+    console.log('Passed Panel browser checks: real Kirby Panel registration, defaults, responsive 66/33 layout and stacked previews, safe text, manual AI review.');
   } finally {
     await browser.close();
     server.close();
@@ -96,6 +96,7 @@ async function realPanel(browser) {
     await page.goto(`http://127.0.0.1:${port}/panel/site?tab=seo`);
     await page.getByRole('region', {name: 'Google', exact: true}).waitFor();
     assert.equal(await page.getByText(/Het veldtype .* bestaat niet/).count(), 0, 'No unknown field error in real Panel');
+    await responsiveLayout(page, 'site');
     for (const [name, expected] of [['metatemplate', '{{ title }} - {{ site.title }}'], ['ogtemplate', '{{ title }}'], ['ogsitename', '{{ site.title }}']]) {
       const input = page.locator(`input[name="${name}"]`);
       assert.equal(await input.inputValue(), expected, `${name} default in real Panel`);
@@ -115,10 +116,15 @@ async function realPanel(browser) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Real Panel mobile overflow');
     await page.goto(`http://127.0.0.1:${port}/panel/pages/test?tab=seo`);
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('Test page - Example', {exact: true}).waitFor();
+    await responsiveLayout(page, 'page');
     assert.equal(await page.locator('input[name="usetitletemplate"]').isChecked(), true, 'Page title pattern enabled by default');
     assert.equal(await page.locator('input[name="useogtemplate"]').isChecked(), true, 'Page social pattern enabled by default');
     await page.locator('input[name="metatitle"]').fill('Changed page');
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('Changed page - Example', {exact: true}).waitFor();
+    const longTitle = 'LongUnbrokenTitle'.repeat(20);
+    await page.locator('input[name="metatitle"]').fill(longTitle);
+    await page.getByRole('region', {name: 'Google', exact: true}).getByText(`${longTitle} - Example`, {exact: true}).waitFor();
+    await responsiveLayout(page, 'page-long-title');
     const sitemap = await page.request.get(`http://127.0.0.1:${port}/sitemap.xml`);
     assert.equal(sitemap.status(), 200, 'Automatic sitemap route');
     assert.match(sitemap.headers()['content-type'], /application\/xml/, 'Sitemap XML content type');
@@ -140,4 +146,40 @@ async function realPanel(browser) {
     await new Promise(resolve => php.once('exit', resolve));
     fs.rmSync(temporary, {recursive: true, force: true});
   }
+}
+
+async function responsiveLayout(page, model) {
+  assert.equal(await page.locator('.k-field-name-robotsarchive').count(), 0, 'Obsolete archive control removed');
+  assert.doesNotMatch(await page.locator('.tf-seo-google').innerText(), /~60|~160|tekens|characters/, 'No preview character guidance');
+  assert.equal(await page.locator('.k-field-name-metatemplate .k-counter').count(), 1, 'Normal input counter retained');
+  for (const width of [1920, 1440, 1280, 1024, 768, 390, 375]) {
+    await page.setViewportSize({width, height: 1000});
+    const layout = await page.evaluate(() => {
+      const rect = node => {
+        const box = node.getBoundingClientRect();
+        return {x: box.x, y: box.y, width: box.width, bottom: box.bottom, right: box.right};
+      };
+      const settings = document.querySelector('.k-section-name-seoSettings').closest('.k-column');
+      const previews = document.querySelector('.tf-seo-previews').closest('.k-section').closest('.k-column');
+      return {settings: rect(settings), previews: rect(previews), cards: [...document.querySelectorAll('.tf-seo-previews > section')].map(rect), overflow: document.documentElement.scrollWidth > innerWidth};
+    });
+    assert.equal(layout.overflow, false, `${model} ${width}px: no document overflow`);
+    for (let i = 1; i < layout.cards.length; i++) {
+      assert.ok(layout.cards[i].y >= layout.cards[i - 1].bottom, 'Platform previews stacked in order');
+      assert.ok(Math.abs(layout.cards[i].x - layout.cards[0].x) < 1, 'Previews share column');
+    }
+    if (width >= 1280) {
+      assert.ok(layout.previews.x >= layout.settings.right, 'Previews to the right of settings');
+      assert.ok(Math.abs(layout.previews.y - layout.settings.y) < 1, 'Columns top aligned');
+      assert.ok(layout.settings.width / layout.previews.width > 1.9 && layout.settings.width / layout.previews.width < 2.3, 'Approximately 66/33 columns');
+    }
+    if (width <= 1024) {
+      assert.ok(layout.previews.y >= layout.settings.bottom, 'Narrow screens place previews after settings');
+      assert.ok(Math.abs(layout.previews.width - layout.settings.width) < 1, 'Narrow columns use full width');
+    }
+    if (process.env.SEO_PANEL_SCREENSHOTS) {
+      await page.screenshot({path: path.join(process.env.SEO_PANEL_SCREENSHOTS, `${model}-${width}.png`), fullPage: true});
+    }
+  }
+  await page.setViewportSize({width: 1440, height: 1000});
 }

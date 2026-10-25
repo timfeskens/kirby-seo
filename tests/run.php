@@ -97,7 +97,7 @@ try {
 
 // Instantiate a real Kirby field and resolve blueprint extensions.
 $blueprint = Kirby\Cms\Blueprint::load('tabs/seo-page');
-check(isset($blueprint['fields']['canonicalUrl']), 'Page blueprint registered');
+check(isset($blueprint['columns']['settings']['sections']['seoSettings']['fields']['canonicalUrl']), 'Page blueprint registered');
 $field = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $page]);
 check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
 $siteField = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
@@ -117,6 +117,14 @@ foreach (['site', 'page'] as $type) {
     check(count($fields->toArray()) > 5, 'SEO ' . $type . ' blueprint resolves all fields');
     check(isset($fields->toProps()['seopreview']['preview']), 'SEO ' . $type . ' Panel props resolve');
     $props = $fields->toProps();
+    check(!isset($props['robotsarchive']), $type . ' obsolete archive control absent');
+    if ($type === 'page') {
+        foreach (['metatitle', 'usetitletemplate', 'useogtemplate', 'canonicalurl', 'twitterauthor', 'metainherit'] as $name) {
+            check(isset($props[$name]), 'Page-specific field retained: ' . $name);
+        }
+        check(!isset($props['ogsitename']) && !isset($props['socialmediaaccounts']), 'Site-only fields absent on pages');
+        check(str_starts_with($blueprint->fields()['ogImage']['query'], 'page.files'), 'Page image query retained');
+    }
     check($props['seopreview']['type'] === 'timfeskens-seo-preview', 'Panel preview uses kebab-case registry key');
     foreach (['metatemplate' => '{{ title }} - {{ site.title }}', 'ogtemplate' => '{{ title }}'] as $key => $expected) {
         check($props[$key]['default'] === $expected, $type . ' literal pattern default');
@@ -131,6 +139,8 @@ foreach (['site', 'page'] as $type) {
         check($props['ogsitename']['placeholder'] === '{{ site.title }}', 'Social site name literal placeholder');
     }
 }
+$legacy = $page->clone(['content' => array_replace($page->content()->toArray(), ['robotsArchive' => 'disallow'])]);
+check(str_contains(Seo::metadata($legacy)['tags']['robots'], 'noarchive'), 'Legacy archive directive still supported');
 $pattern = new Field('timfeskens-seo-text', ['name' => 'metaTemplate', 'model' => $page, 'value' => '{{ title }} | Custom']);
 check($pattern->toArray()['value'] === '{{ title }} | Custom', 'Existing custom patterns preserved');
 $customSite = $kirby->site()->clone(['content' => ['title' => 'Example', 'metaTemplate' => '{{ title }} | Custom site']]);

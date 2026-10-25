@@ -1,4 +1,8 @@
-.tf-seo-previews { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }
+.k-sections:has(> .k-column > .k-section-name-seoSettings) { container: tf-seo-layout / inline-size; }
+@container tf-seo-layout (max-width: 55rem) {
+  .k-sections > .k-column { grid-column: 1 / -1; }
+}
+.tf-seo-previews { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
 .tf-seo-card { background: var(--color-background); border: 1px solid var(--color-border); border-radius: .375rem; padding: 1rem; overflow-wrap: anywhere; }
 .tf-seo-card h3 { font-weight: 600; margin-block-end: .75rem; }
 .tf-seo-card p { margin-block: .4rem; line-height: 1.45; }
@@ -6,7 +10,7 @@
 .tf-seo-card .tf-seo-title { color: light-dark(#1a0dab, #a8c7fa); font-size: 1.2rem; }
 .tf-seo-social-title { font-weight: 600; }
 .tf-seo-url, .tf-seo-note, .tf-seo-card small { color: var(--color-text-dimmed); font-size: .8rem; }
-.tf-seo-note { display: block; margin-block: .75rem; line-height: 1.5; }
+.tf-seo-note { display: block; margin-block: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
 .tf-seo-card { min-width: 0; }
 .tf-seo-twitter-summary { display: flex; gap: .75rem; align-items: center; }
 .tf-seo-twitter-summary img { width: 5rem; flex: 0 0 5rem; aspect-ratio: 1; }

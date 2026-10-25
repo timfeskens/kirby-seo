@@ -40,6 +40,7 @@ Kirby::plugin('timfeskens/seo', [
         'tabs/seo-site' => __DIR__ . '/blueprints/tabs/site.yml',
         'tabs/seo-page' => __DIR__ . '/blueprints/tabs/page.yml',
         'fields/seo-robots' => __DIR__ . '/blueprints/fields/robots.yml',
+        'sections/seo-settings' => __DIR__ . '/blueprints/sections/settings.yml',
     ],
     'pageMethods' => [
         'seo' => function (): array { return Seo::metadata($this); },

@@ -93,6 +93,15 @@ $blueprint = Kirby\Cms\Blueprint::load('tabs/seo-page');
 check(isset($blueprint['fields']['canonicalUrl']), 'Page blueprint registered');
 $field = new Field('timfeskensSeoPreview', ['name' => 'seoPreview', 'model' => $page]);
 check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
+$siteField = new Field('timfeskensSeoPreview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
+check(is_array($siteField->toArray()['preview']), 'Site preview field serializes');
+foreach (['site', 'page'] as $type) {
+    $model = $type === 'site' ? $kirby->site() : $page;
+    $blueprint = new Kirby\Cms\Blueprint(['name' => 'seo-test-' . $type, 'model' => $model, 'tabs' => ['seo' => 'tabs/seo-' . $type]]);
+    $fields = new Kirby\Form\Fields($blueprint->fields(), $model);
+    check(count($fields->toArray()) > 5, 'SEO ' . $type . ' blueprint resolves all fields');
+    check(isset($fields->toProps()['seopreview']['preview']), 'SEO ' . $type . ' Panel props resolve');
+}
 
 [$kirby, $page] = fixture(['timfeskens.seo.noindex' => true, 'timfeskens.seo.llms.enabled' => true, 'timfeskens.seo.llms.include' => fn () => true, 'timfeskens.seo.indexnow.enabled' => true, 'timfeskens.seo.indexnow.key' => 'abcdefgh12345678']);
 check(!Seo::indexable($page), 'Environment noindex takes precedence');

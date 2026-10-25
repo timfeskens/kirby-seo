@@ -1,0 +1,194 @@
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__) . '/index.php';
+
+use Kirby\Cms\App;
+use Kirby\Cms\Page;
+use Kirby\Cms\Site;
+use Kirby\Form\Field;
+use TimFeskens\Seo\Endpoints;
+use TimFeskens\Seo\Integrations;
+use TimFeskens\Seo\Seo;
+
+$count = 0;
+function check(bool $condition, string $message): void
+{
+    global $count;
+    $count++;
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+function fixture(array $options = []): array
+{
+    $root = sys_get_temp_dir() . '/kirby-seo-tests-' . getmypid();
+    $kirby = new App([
+        'roots' => ['index' => $root, 'cache' => $root . '/cache'],
+        'urls' => ['index' => 'https://preview.example.test'],
+        'options' => array_replace_recursive([
+            'timfeskens.seo.canonicalBase' => 'https://example.test',
+            'timfeskens.seo.locale' => 'nl_NL',
+        ], $options),
+        'site' => [
+            'content' => ['title' => 'Example', 'metaDescription' => 'Site description'],
+            'children' => [
+                ['slug' => 'home', 'template' => 'home', 'content' => ['title' => 'Home']],
+                ['slug' => 'error', 'template' => 'error', 'content' => ['title' => 'Error']],
+                ['slug' => 'recipes', 'num' => 1, 'content' => ['title' => 'Recipes', 'metaInherit' => 'metaDescription', 'metaDescription' => 'Parent description'], 'children' => [
+                    ['slug' => 'cake', 'num' => 1, 'content' => ['title' => 'Cake <script>alert(1)</script>']],
+                ]],
+                ['slug' => 'hidden', 'content' => ['title' => 'Hidden']],
+                ['slug' => 'listed', 'num' => 2, 'content' => ['title' => 'Listed', 'robotsIndex' => 'false']],
+                ['slug' => 'duplicate', 'num' => 3, 'content' => ['title' => 'Duplicate', 'canonicalUrl' => 'https://original.example.test/article']],
+            ],
+        ],
+    ]);
+    return [$kirby, $kirby->page('recipes/cake')];
+}
+
+[$kirby, $page] = fixture();
+check($page instanceof Page, 'Fixture page exists');
+$meta = Seo::metadata($page);
+check($meta['canonical'] === 'https://example.test/recipes/cake', 'Canonical origin');
+check(Seo::canonical($kirby->site()->homePage()) === 'https://example.test', 'Home canonical');
+check($meta['tags']['description'] === 'Parent description', 'Explicit parent inheritance');
+check($meta['tags']['og:locale'] === 'nl_NL', 'Locale configurable');
+check($meta['tags']['robots'] === 'index, follow', 'Listed pages indexable');
+check(!Seo::indexable($kirby->page('hidden')), 'Unlisted pages not indexable by default');
+check(Seo::allowed($kirby->page('hidden'), 'follow'), 'Unlisted links still followed');
+check(!Seo::indexable($kirby->page('error')), 'Error excluded');
+check(!Seo::indexable($kirby->page('listed')), 'Explicit noindex respected');
+$override = $page->clone(['content' => ['title' => 'Own title', 'metaDescription' => 'Own description']]);
+check(Seo::metadata($override)['tags']['description'] === 'Own description', 'Page override');
+check(Seo::metadata($override)['title'] === 'Own title - Example', 'Title template');
+$html = Seo::render($page);
+check(substr_count($html, '<title>') === 1, 'Single title');
+check(!str_contains($html, '<script>alert'), 'HTML stripped from title');
+check(str_contains(Seo::json(['text' => '</script><script>']), '\u003C'), 'JSON script delimiter escaped');
+check(str_contains(Seo::escape('"<>'), '&quot;&lt;&gt;'), 'Attribute escaping');
+$doc = new DOMDocument();
+check($doc->loadXML(Endpoints::sitemap()->body()), 'Valid sitemap XML');
+$xml = Endpoints::sitemap()->body();
+check(!str_contains($xml, '/hidden'), 'Unlisted excluded from sitemap');
+check(!str_contains($xml, '/listed'), 'Noindex excluded from sitemap');
+check(!str_contains($xml, '/duplicate'), 'External canonical excluded from sitemap');
+check(str_contains($xml, '/recipes/cake'), 'Child included in sitemap');
+check(str_contains(Endpoints::robots()->body(), 'https://example.test/sitemap.xml'), 'Canonical sitemap in robots');
+check(Endpoints::llms()->code() === 404, 'LLM disabled by default');
+check(Endpoints::markdown('recipes/cake')->code() === 404, 'Markdown disabled by default');
+check(!Integrations::indexNowEnabled(), 'IndexNow disabled by default');
+try {
+    Integrations::suggest($page);
+    check(false, 'AI disabled by default');
+} catch (RuntimeException $e) {
+    check($e->getMessage() === 'AI assistance is not configured.', 'AI disabled by default');
+}
+
+// Instantiate a real Kirby field and resolve blueprint extensions.
+$blueprint = Kirby\Cms\Blueprint::load('tabs/seo-page');
+check(isset($blueprint['fields']['canonicalUrl']), 'Page blueprint registered');
+$field = new Field('timfeskensSeoPreview', ['name' => 'seoPreview', 'model' => $page]);
+check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
+
+[$kirby, $page] = fixture(['timfeskens.seo.noindex' => true, 'timfeskens.seo.llms.enabled' => true, 'timfeskens.seo.llms.include' => fn () => true, 'timfeskens.seo.indexnow.enabled' => true, 'timfeskens.seo.indexnow.key' => 'abcdefgh12345678']);
+check(!Seo::indexable($page), 'Environment noindex takes precedence');
+check(str_contains(Seo::metadata($page)['tags']['robots'], 'noindex'), 'Noindex meta');
+check(str_contains(Endpoints::robots()->body(), 'Disallow: /'), 'Preview robots disallow');
+check(!str_contains(Endpoints::sitemap()->body(), '<url>'), 'Preview sitemap empty');
+check(Endpoints::llms()->code() === 404, 'Preview cannot export llms');
+check(!Integrations::indexNowEnabled(), 'Preview cannot submit IndexNow');
+
+[$kirby, $page] = fixture([
+    'timfeskens.seo.llms.enabled' => true,
+    'timfeskens.seo.llms.include' => fn (Page $page) => $page->id() === 'recipes/cake',
+    'timfeskens.seo.llms.markdown' => fn (Page $page) => '# ' . Seo::text($page->title()),
+]);
+check(str_contains(Endpoints::llms()->body(), 'recipes%2Fcake.md'), 'Explicit LLM inclusion');
+check(!str_contains(Endpoints::llms()->body(), 'Hidden'), 'LLM excludes non-included content');
+check(Endpoints::markdown('recipes%2Fcake')->code() === 200, 'Markdown opt in');
+check(Endpoints::markdown('hidden')->code() === 404, 'Markdown excludes unlisted');
+
+[$kirby, $page] = fixture(['timfeskens.seo.schema' => function (Page $page, array $graph): array {
+    $graph[] = ['@type' => 'Recipe', 'name' => $page->title()->value()];
+    return $graph;
+}]);
+check(count(Seo::schema($page, Seo::metadata($page))['@graph']) === 3, 'Schema extension API');
+
+[$kirby, $page] = fixture(['timfeskens.seo.include' => fn (Page $page) => $page->id() !== 'recipes/cake']);
+check(!Seo::indexable($page), 'Site-specific private content exclusion');
+check(!str_contains(Endpoints::sitemap()->body(), '/cake'), 'Excluded content absent from sitemap');
+
+[$kirby, $page] = fixture(['timfeskens.seo.indexnow.enabled' => true, 'timfeskens.seo.indexnow.key' => 'abcdefgh12345678']);
+Integrations::enqueue($page);
+Integrations::enqueue($page);
+$sent = [];
+check(Integrations::flush(function (array $payload) use (&$sent): int { $sent = $payload; return 202; }) === 1, 'IndexNow deduplicated batch');
+check($sent['host'] === 'example.test', 'IndexNow canonical host');
+check($sent['urlList'] === ['https://example.test/recipes/cake'], 'IndexNow URL payload');
+Integrations::enqueue($page);
+try {
+    Integrations::flush(fn () => 500);
+    check(false, 'Failed IndexNow batch throws');
+} catch (RuntimeException) {
+    check(count($kirby->cache('timfeskens.seo')->get('indexnow')) === 1, 'Failed IndexNow batch retained');
+}
+Integrations::flush(fn () => 200);
+check(Integrations::flush(fn () => 200) === 0, 'Acknowledged batch cleared');
+
+$input = null;
+[$kirby, $page] = fixture([
+    'timfeskens.seo.ai.enabled' => true,
+    'timfeskens.seo.ai.source' => fn () => '<p>Only these facts</p>',
+    'timfeskens.seo.ai.provider' => function (array $data) use (&$input): array {
+        $input = $data;
+        return ['title' => '<b>Suggested</b>', 'description' => 'A suggestion'];
+    },
+]);
+try {
+    Integrations::suggest($page);
+    check(false, 'Unauthenticated AI rejected');
+} catch (RuntimeException $e) {
+    check($e->getMessage() === 'Not allowed.', 'Unauthenticated AI rejected');
+}
+$kirby->impersonate('kirby');
+$suggestion = Integrations::suggest($page);
+check($suggestion['title'] === 'Suggested', 'AI response sanitized');
+check($input['text'] === 'Only these facts', 'Only configured AI source sent');
+check($page->metaTitle()->isEmpty(), 'AI never writes metadata');
+
+[$kirby, $page] = fixture(['timfeskens.seo.noindex' => true]);
+$kirby->call('robots.txt');
+check($kirby->response()->header('X-Robots-Tag') === 'noindex, nofollow, noarchive', 'Global noindex response header');
+
+$kirby = new App([
+    'roots' => ['index' => sys_get_temp_dir() . '/kirby-seo-multilang-' . getmypid()],
+    'urls' => ['index' => 'https://example.test'],
+    'options' => ['languages' => true, 'timfeskens.seo.canonicalBase' => ['nl' => 'https://example.nl', 'en' => 'https://example.com']],
+    'languages' => [
+        ['code' => 'nl', 'default' => true, 'locale' => 'nl_NL', 'url' => '/'],
+        ['code' => 'en', 'locale' => 'en_GB', 'url' => '/en'],
+    ],
+    'site' => [
+        'translations' => [['code' => 'nl', 'content' => ['title' => 'Voorbeeld']], ['code' => 'en', 'content' => ['title' => 'Example']]],
+        'children' => [
+            ['slug' => 'home', 'template' => 'home', 'translations' => [['code' => 'nl', 'content' => ['title' => 'Welkom']], ['code' => 'en', 'content' => ['title' => 'Welcome']]]],
+            ['slug' => 'over', 'num' => 1, 'translations' => [['code' => 'nl', 'content' => ['title' => 'Over']], ['code' => 'en', 'slug' => 'about', 'content' => ['title' => 'About']]]],
+            ['slug' => 'alleen-nl', 'num' => 2, 'translations' => [['code' => 'nl', 'content' => ['title' => 'Nederlands']]]],
+        ],
+    ],
+]);
+$page = $kirby->page('over');
+check(Seo::languages($page) === ['en', 'nl'] || Seo::languages($page) === ['nl', 'en'], 'Translated languages');
+check(Seo::canonical($page, 'nl') === 'https://example.nl/over', 'Dutch canonical');
+check(Seo::canonical($page, 'en') === 'https://example.com/en/about', 'Translated slug and canonical domain');
+check(Seo::metadata($page, 'en')['tags']['og:locale'] === 'en_GB', 'Language locale');
+check(Seo::metadata($page, 'en')['title'] === 'About - Example', 'Translated metadata');
+check(Seo::languages($kirby->page('alleen-nl')) === ['nl'], 'Missing translations omitted');
+check(str_contains(Endpoints::sitemap()->body(), 'hreflang="en"'), 'Sitemap language alternates');
+check(str_contains(Seo::render($page), 'hreflang="nl"'), 'HTML language alternates');
+
+echo "Passed {$count} assertions.\n";

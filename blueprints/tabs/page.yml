@@ -1,0 +1,63 @@
+extends: tabs/seo-site
+fields:
+  metaTitle:
+    label:
+      en: Custom page title
+      nl: Afwijkende paginatitel
+    type: text
+  useTitleTemplate:
+    label:
+      en: Use title pattern
+      nl: Titelpatroon gebruiken
+    type: toggle
+    default: true
+  useOgTemplate:
+    label:
+      en: Use social title pattern
+      nl: Titelpatroon voor sociale media gebruiken
+    type: toggle
+    default: true
+  canonicalUrl:
+    label:
+      en: Canonical URL override
+      nl: Afwijkende canonieke URL
+    type: url
+    help:
+      en: Leave empty unless this content has its original version elsewhere.
+      nl: Laat leeg, tenzij de oorspronkelijke versie van deze inhoud ergens anders staat.
+  ogSiteName: false
+  socialMediaAccounts: false
+  ogImage:
+    query: page.files.add(site.files).add(site.index.files).filterBy('type', 'image')
+  twitterAuthor:
+    label:
+      en: Twitter/X author
+      nl: Twitter/X-auteur
+    type: text
+    before: '@'
+  metaInherit:
+    label:
+      en: Pass these settings to child pages
+      nl: Deze instellingen ook voor onderliggende pagina’s gebruiken
+    type: multiselect
+    options:
+      metaTemplate:
+        en: Title pattern
+        nl: Titelpatroon
+      metaDescription:
+        en: Description
+        nl: Omschrijving
+      ogTemplate:
+        en: Social title pattern
+        nl: Titelpatroon voor sociale media
+      ogDescription:
+        en: Social description
+        nl: Omschrijving voor sociale media
+      ogImage:
+        en: Social image
+        nl: Afbeelding voor sociale media
+      twitterCardType: Twitter/X-card
+      twitterAuthor: Twitter/X-author
+      robots:
+        en: Robots rules
+        nl: Indexeringsinstellingen

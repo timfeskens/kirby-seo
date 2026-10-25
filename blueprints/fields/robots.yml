@@ -1,0 +1,12 @@
+type: select
+default: default
+options:
+  default:
+    en: Inherit / automatic
+    nl: Overnemen / automatisch
+  'true':
+    en: Allow
+    nl: Toestaan
+  'false':
+    en: Disallow
+    nl: Niet toestaan

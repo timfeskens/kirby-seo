@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+Resolve unsaved site defaults and site-title patterns in live previews without
+persisting content or leaving modified Kirby context. Add preview isolation tests.
+
 ## 0.1.1
 
 Explicitly require Kirby's Composer installer so consuming projects install the

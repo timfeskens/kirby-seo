@@ -6,6 +6,7 @@ use Kirby\Cms\Page;
 use Kirby\Http\Response;
 use TimFeskens\Seo\Endpoints;
 use TimFeskens\Seo\Integrations;
+use TimFeskens\Seo\Preview;
 use TimFeskens\Seo\Seo;
 
 // Manual installation is supported as well as Composer.
@@ -64,17 +65,7 @@ Kirby::plugin('timfeskens/seo', [
                             if (!is_array($data)) {
                                 $data = [];
                             }
-                            $allowed = ['title', 'metaTitle', 'metaTemplate', 'metaDescription', 'ogTemplate', 'ogDescription', 'ogSiteName', 'useTitleTemplate', 'useOgTemplate', 'twitterCardType', 'twitterAuthor', 'canonicalUrl', 'ogImage', 'robotsIndex', 'robotsFollow'];
-                            $keys = array_map('strtolower', $allowed);
-                            $data = array_intersect_key(array_change_key_case($data), array_flip($keys));
-                            foreach ($data as &$value) {
-                                if (is_array($value)) {
-                                    $value = \Kirby\Data\Data::encode($value, 'yaml');
-                                }
-                            }
-                            unset($value);
-                            $model = $model->clone(['content' => array_replace($model->content()->toArray(), $data)]);
-                            return Seo::metadata($model instanceof Page ? $model : $model->homePage()->clone(['site' => $model]));
+                            return Preview::metadata($model, $data);
                         },
                     ],
                     [

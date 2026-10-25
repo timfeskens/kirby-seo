@@ -11,6 +11,7 @@ use Kirby\Cms\Site;
 use Kirby\Form\Field;
 use TimFeskens\Seo\Endpoints;
 use TimFeskens\Seo\Integrations;
+use TimFeskens\Seo\Preview;
 use TimFeskens\Seo\Seo;
 
 $count = 0;
@@ -95,6 +96,14 @@ $field = new Field('timfeskensSeoPreview', ['name' => 'seoPreview', 'model' => $
 check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
 $siteField = new Field('timfeskensSeoPreview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
 check(is_array($siteField->toArray()['preview']), 'Site preview field serializes');
+$preview = Preview::metadata($page, ['metaTitle' => 'Unsaved title', 'metaDescription' => 'Unsaved description', 'ogImage' => []]);
+check($preview['title'] === 'Unsaved title - Example', 'Unsaved page title preview');
+check($preview['tags']['description'] === 'Unsaved description', 'Unsaved page description preview');
+check(Seo::metadata($page)['tags']['description'] === 'Parent description', 'Preview never mutates page');
+$preview = Preview::metadata($kirby->site(), ['title' => 'Unsaved site', 'metaDescription' => 'Unsaved site description']);
+check($preview['title'] === 'Home - Unsaved site', 'Unsaved site title pattern');
+check($preview['tags']['description'] === 'Unsaved site description', 'Unsaved site description preview');
+check($kirby->site()->title()->value() === 'Example', 'Preview restores site context');
 foreach (['site', 'page'] as $type) {
     $model = $type === 'site' ? $kirby->site() : $page;
     $blueprint = new Kirby\Cms\Blueprint(['name' => 'seo-test-' . $type, 'model' => $model, 'tabs' => ['seo' => 'tabs/seo-' . $type]]);

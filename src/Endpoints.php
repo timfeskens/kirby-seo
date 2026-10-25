@@ -38,6 +38,7 @@ final class Endpoints
                 if ($modified) {
                     $xml .= '    <lastmod>' . $escape($modified) . "</lastmod>\n";
                 }
+                $xml .= '    <priority>' . self::sitemapPriority($page, $language) . "</priority>\n";
                 if ($page->kirby()->multilang()) {
                     foreach (Seo::languages($page) as $alternate) {
                         if (self::sitemapEligible($page, $alternate)) {
@@ -54,6 +55,21 @@ final class Endpoints
     public static function sitemapStylesheet(): Response
     {
         return new Response(file_get_contents(dirname(__DIR__) . '/assets/sitemap.xsl'), 'text/xsl');
+    }
+
+    public static function sitemapPriority(Page $page, ?string $language = null): string
+    {
+        if ($page->isHomePage()) {
+            return '1.0';
+        }
+        $path = trim((string)parse_url(Seo::canonical($page, $language), PHP_URL_PATH), '/');
+        $home = trim((string)parse_url(Seo::canonical($page->site()->homePage(), $language), PHP_URL_PATH), '/');
+        // Only content URL segments count, not the installation or language prefix.
+        if ($home !== '' && str_starts_with($path, $home . '/')) {
+            $path = substr($path, strlen($home) + 1);
+        }
+        $depth = count(array_filter(explode('/', $path), static fn ($segment) => $segment !== ''));
+        return number_format(max(1, 10 - 2 * max(1, $depth)) / 10, 1, '.', '');
     }
 
     private static function sitemapEligible(Page $page, ?string $language): bool

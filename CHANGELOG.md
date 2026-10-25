@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8 — 2026-10-25
+
+- Add automatic sitemap priorities based on content URL depth: homepage 1.0, then 0.8, 0.6, 0.4, 0.2 and a minimum of 0.1.
+- Exclude installation subdirectories and language prefixes from depth calculations.
+- Display priority alongside URL and modification date in the responsive sitemap table.
+- Test XML coverage, deep URL floors, translated homepages, language prefixes, subdirectory installations and browser rendering.
+
 ## 0.1.7 — 2026-10-25
 
 - Fix sitemap modification dates on sites using Kirby's `intl` date handler: always emit ISO 8601 using PHP's date handler.

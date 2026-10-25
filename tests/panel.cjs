@@ -152,6 +152,9 @@ async function realPanel(browser) {
     await page.getByRole('heading', {name: 'XML Sitemap', exact: true}).waitFor();
     assert.equal(await page.locator('tbody tr').count(), 2, 'Browser renders sitemap entries');
     assert.equal(await page.locator('.count').innerText(), '2 URLs', 'Sitemap displays entry count');
+    assert.equal(await page.getByRole('columnheader', {name: 'Priority', exact: true}).count(), 1, 'Priority column visible');
+    assert.equal(await page.locator('tbody tr').filter({hasText: 'https://example.test/test'}).locator('td.priority').innerText(), '0.8', 'Top-level priority displayed');
+    assert.deepEqual((await page.locator('tbody td.priority').allTextContents()).sort(), ['0.8', '1.0'], 'Homepage and page priorities displayed');
     assert.equal(await page.getByRole('link', {name: 'https://example.test/test', exact: true}).getAttribute('href'), 'https://example.test/test', 'Sitemap URLs clickable');
     for (const width of [1440, 390, 375]) {
       await page.setViewportSize({width, height: 900});

@@ -156,9 +156,11 @@ Some browsers show an XSLT deprecation warning; this browser-owned notice cannot
 be removed by the plugin. The stylesheet is a convenience, not a dependency for
 indexing or sitemap validity.
 Modification dates use ISO 8601 regardless of the site's configured date handler;
-unavailable dates are
-omitted. Optional `priority` and `changefreq` hints are not generated (Google
-ignores both).
+unavailable dates are omitted. Each entry includes a URL-depth-based `priority`:
+homepage **1.0**, top-level **0.8**, then **0.6**, **0.4**, **0.2**, with **0.1**
+for deeper URLs. Installation subdirectories and language prefixes do not count
+as content levels. Priority is also shown in the browser table. Google ignores
+this optional hint; it is not a ranking score. `changefreq` is not generated.
 Disable these routes with `'sitemap' => false` if another sitemap owns the URL.
 
 Listed pages and home are indexable by default; unlisted pages require explicit

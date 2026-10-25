@@ -24,6 +24,7 @@
           th, td { padding: 1rem; text-align: left; vertical-align: top; border-bottom: 1px solid #dce3ea; }
           th { font-size: .8rem; color: #526171; }
           th:last-child { width: 16rem; }
+          .priority { width: 6rem; font-variant-numeric: tabular-nums; }
           a { color: #155ba0; text-underline-offset: .2em; overflow-wrap: anywhere; }
           a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
           time { font-size: .875rem; overflow-wrap: anywhere; }
@@ -33,7 +34,8 @@
           .empty { padding: 1.5rem; border: 1px dashed #9aa8b5; border-radius: .5rem; }
           footer { margin-top: 1.5rem; font-size: .8rem; }
           @media (max-width: 40rem) {
-            th, td { padding: .75rem; }
+            th, td { padding: .5rem; }
+            .priority { width: 4rem; font-size: .75rem; }
             th:last-child { width: 35%; }
           }
           @media (prefers-color-scheme: dark) {
@@ -56,8 +58,8 @@
           <xsl:choose>
             <xsl:when test="sm:urlset/sm:url">
               <table>
-                <caption style="position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden">Sitemap URLs and last modification dates</caption>
-                <thead><tr><th scope="col">URL</th><th scope="col">Last modified</th></tr></thead>
+                <caption style="position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden">Sitemap URLs, priorities and last modification dates</caption>
+                <thead><tr><th scope="col">URL</th><th scope="col" class="priority">Priority</th><th scope="col">Last modified</th></tr></thead>
                 <tbody>
                   <xsl:for-each select="sm:urlset/sm:url">
                     <tr>
@@ -71,6 +73,7 @@
                           </div>
                         </xsl:if>
                       </td>
+                      <td class="priority"><xsl:value-of select="sm:priority"/></td>
                       <td>
                         <xsl:choose>
                           <xsl:when test="sm:lastmod"><time datetime="{sm:lastmod}"><span><xsl:value-of select="substring(sm:lastmod, 1, 10)"/></span><span class="clock"><xsl:value-of select="substring(sm:lastmod, 12, 8)"/><br/><xsl:value-of select="substring(sm:lastmod, 20)"/></span></time></xsl:when>

@@ -83,6 +83,10 @@ check(str_contains($xml, '/invalid-canonical'), 'Invalid override does not remov
 $xpath = new DOMXPath($doc);
 $xpath->registerNamespace('sm', 'http://www.sitemaps.org/schemas/sitemap/0.9');
 check($xpath->query('//sm:loc[text()="https://example.test"]')->length === 1, 'Homepage included once');
+check($xpath->evaluate('string(//sm:url[sm:loc="https://example.test"]/sm:priority)') === '1.0', 'Homepage priority is 1.0');
+check($xpath->evaluate('string(//sm:url[sm:loc="https://example.test/recipes"]/sm:priority)') === '0.8', 'Top-level priority is 0.8');
+check($xpath->evaluate('string(//sm:url[sm:loc="https://example.test/recipes/cake"]/sm:priority)') === '0.6', 'Second-level priority is 0.6');
+check($xpath->query('//sm:priority')->length === $xpath->query('//sm:url')->length, 'Every sitemap entry has a priority');
 check(!str_contains($xml, '/error'), 'Error page absent from sitemap');
 check(str_contains($xml, "\n  <url>\n    <loc>"), 'Sitemap XML is indented');
 check(str_contains($xml, 'href="https://preview.example.test/sitemap.xsl"'), 'Stylesheet uses serving origin rather than canonical origin');
@@ -111,6 +115,21 @@ $subdirectory = new App([
     'site' => ['children' => [['slug' => 'home', 'template' => 'home', 'content' => ['title' => 'Home']]]],
 ]);
 check(str_contains(Endpoints::sitemap()->body(), 'href="https://preview.example.test/subdirectory/sitemap.xsl"'), 'Stylesheet supports installation subdirectories');
+$tree = [];
+for ($level = 6; $level >= 1; $level--) {
+    $tree = [['slug' => 'level-' . $level, 'num' => 1, 'content' => ['title' => 'Level ' . $level], 'children' => $tree]];
+}
+$depthKirby = new App([
+    'roots' => ['index' => sys_get_temp_dir() . '/kirby-seo-depth-' . getmypid()],
+    'urls' => ['index' => 'https://preview.example.test/install'],
+    'options' => ['timfeskens.seo.canonicalBase' => 'https://example.test/install'],
+    'site' => ['children' => array_merge([['slug' => 'home', 'template' => 'home', 'content' => ['title' => 'Home']]], $tree)],
+]);
+$path = '';
+foreach (['0.8', '0.6', '0.4', '0.2', '0.1', '0.1'] as $index => $priority) {
+    $path .= ($path === '' ? '' : '/') . 'level-' . ($index + 1);
+    check(Endpoints::sitemapPriority($depthKirby->page($path)) === $priority, 'URL level ' . ($index + 1) . ' priority excludes installation path and stays at least 0.1');
+}
 [$kirby, $page] = fixture();
 check(str_contains(Endpoints::robots()->body(), 'https://example.test/sitemap.xml'), 'Canonical sitemap in robots');
 check(Endpoints::llms()->code() === 404, 'LLM disabled by default');
@@ -297,6 +316,9 @@ $page = $kirby->page('over');
 check(Seo::languages($page) === ['en', 'nl'] || Seo::languages($page) === ['nl', 'en'], 'Translated languages');
 check(Seo::canonical($page, 'nl') === 'https://example.nl/over', 'Dutch canonical');
 check(Seo::canonical($page, 'en') === 'https://example.com/en/about', 'Translated slug and canonical domain');
+check(Endpoints::sitemapPriority($page, 'en') === '0.8', 'Language prefix does not lower priority');
+check(Endpoints::sitemapPriority($page, 'nl') === '0.8', 'Language versions have matching priority');
+check(Endpoints::sitemapPriority($kirby->site()->homePage(), 'en') === '1.0', 'Translated homepage priority is 1.0');
 check(Seo::metadata($page, 'en')['tags']['og:locale'] === 'en_GB', 'Language locale');
 check(Seo::metadata($page, 'en')['title'] === 'About - Example', 'Translated metadata');
 check(Seo::languages($kirby->page('alleen-nl')) === ['nl'], 'Missing translations omitted');

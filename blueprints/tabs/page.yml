@@ -9,13 +9,13 @@ fields:
     label:
       en: Use title pattern
       nl: Titelpatroon gebruiken
-    type: toggle
+    type: timfeskens-seo-toggle
     default: true
   useOgTemplate:
     label:
       en: Use social title pattern
       nl: Titelpatroon voor sociale media gebruiken
-    type: toggle
+    type: timfeskens-seo-toggle
     default: true
   canonicalUrl:
     label:

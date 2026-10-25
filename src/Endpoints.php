@@ -24,22 +24,18 @@ final class Endpoints
         $escape = fn ($value) => htmlspecialchars((string)$value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
         foreach (self::pages() as $page) {
             foreach (Seo::languages($page) as $language) {
-                if (!Seo::indexable($page, $language)) {
+                if (!self::sitemapEligible($page, $language)) {
                     continue;
                 }
                 $canonical = Seo::canonical($page, $language);
-                $override = Seo::field($page, 'canonicalUrl', $language)->value();
-                if ($override && $override !== $canonical) {
-                    continue;
-                }
                 $xml .= '<url><loc>' . $escape($canonical) . '</loc>';
-                $modified = $page->modified('c');
+                $modified = $page->modified('c', languageCode: $language);
                 if ($modified) {
                     $xml .= '<lastmod>' . $escape($modified) . '</lastmod>';
                 }
                 if ($page->kirby()->multilang()) {
                     foreach (Seo::languages($page) as $alternate) {
-                        if (Seo::indexable($page, $alternate)) {
+                        if (self::sitemapEligible($page, $alternate)) {
                             $xml .= '<xhtml:link rel="alternate" hreflang="' . $escape($alternate) . '" href="' . $escape(Seo::canonical($page, $alternate)) . '" />';
                         }
                     }
@@ -48,6 +44,18 @@ final class Endpoints
             }
         }
         return new Response($xml . '</urlset>', 'application/xml');
+    }
+
+    private static function sitemapEligible(Page $page, ?string $language): bool
+    {
+        if (!Seo::indexable($page, $language)) {
+            return false;
+        }
+        $override = (string)Seo::field($page, 'canonicalUrl', $language)->value();
+        // Match metadata validation: invalid overrides do not suppress a valid page URL.
+        return !filter_var($override, FILTER_VALIDATE_URL)
+            || !in_array(parse_url($override, PHP_URL_SCHEME), ['http', 'https'], true)
+            || $override === Seo::canonical($page, $language);
     }
 
     public static function robots(): Response

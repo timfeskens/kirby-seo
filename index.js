@@ -1,7 +1,14 @@
 /* Native Kirby/Vue components: no bundler or runtime dependency required. */
 panel.plugin("timfeskens/seo", {
   fields: {
-    timfeskensSeoPreview: {
+    "timfeskens-seo-text": { extends: "k-text-field" },
+    "timfeskens-seo-textarea": { extends: "k-textarea-field" },
+    "timfeskens-seo-select": {
+      extends: "k-select-field",
+      render(h) { return h("k-select-field", { props: { ...this.$props, type: "select" }, attrs: this.$attrs, on: this.$listeners }); },
+    },
+    "timfeskens-seo-toggle": { extends: "k-toggle-field" },
+    "timfeskens-seo-preview": {
       props: { label: String, preview: Object, endpoints: Object, ai: Boolean },
       data() {
         return { current: this.preview, timer: null, request: 0, suggestion: null, busy: false, error: "" };
@@ -25,6 +32,7 @@ panel.plugin("timfeskens/seo", {
           },
         },
       },
+      mounted() { this.refresh(); },
       beforeDestroy() { clearTimeout(this.timer); this.request++; },
       methods: {
         async refresh() {
@@ -49,23 +57,38 @@ panel.plugin("timfeskens/seo", {
         },
       },
       render(h) {
-        const meta = this.current || this.preview;
+        const meta = this.current || this.preview || {};
         const tags = meta.tags || {};
-        const card = (title, children) => h("section", { class: "tf-seo-card" }, [h("h3", title), ...children]);
+        const card = (title, children, platform = "") => h("section", { class: ["tf-seo-card", platform && `tf-seo-${platform}`], attrs: { "aria-label": title } }, [h("h3", title), ...children]);
+        const image = (src, alt) => src ? h("img", { attrs: { src, alt: alt || "", loading: "lazy" } }) : null;
+        let domain = meta.canonical || "";
+        try { domain = new URL(domain).hostname; } catch (_) {}
         return h("k-field", { props: { label: this.label } }, [
           h("div", { class: "tf-seo-previews" }, [
-            card(this.nl ? "Zoekresultaat" : "Search result", [
+            card("Google", [
               h("p", { class: "tf-seo-url" }, meta.canonical),
               h("p", { class: "tf-seo-title" }, meta.title),
               h("p", tags.description || (this.nl ? "Vul een omschrijving in." : "Add a description.")),
               h("small", `${[...(meta.title || "")].length} / ~60 · ${[...(tags.description || "")].length} / ~160 ${this.nl ? "tekens" : "characters"}`),
-            ]),
-            card(this.nl ? "Sociale media" : "Social media", [
-              tags["og:image"] ? h("img", { attrs: { src: tags["og:image"], alt: tags["og:image:alt"] || "", loading: "lazy" } }) : null,
-              h("p", { class: "tf-seo-url" }, tags["og:site_name"]),
+            ], "google"),
+            card("Facebook", [
+              image(tags["og:image"], tags["og:image:alt"]),
+              h("p", { class: "tf-seo-url" }, tags["og:site_name"] || domain),
               h("p", { class: "tf-seo-social-title" }, tags["og:title"]),
               h("p", tags["og:description"]),
-            ]),
+              h("small", domain),
+            ], "facebook"),
+            card("Twitter / X", [
+              h("div", { class: ["tf-seo-twitter-card", `tf-seo-twitter-${tags["twitter:card"] || "summary"}`] }, [
+                image(tags["twitter:image"], tags["og:image:alt"]),
+                h("div", [
+                  h("p", { class: "tf-seo-social-title" }, tags["twitter:title"]),
+                  h("p", tags["twitter:description"]),
+                  h("p", { class: "tf-seo-url" }, domain),
+                ]),
+              ]),
+              h("small", [tags["twitter:site"], tags["twitter:creator"]].filter(Boolean).join(" · ")),
+            ], "twitter"),
           ]),
           h("small", { class: "tf-seo-note" }, this.nl ? "Een indicatie, geen garantie: zoekmachines en sociale platforms kunnen andere tekst en afbeeldingen tonen." : "An approximation, not a guarantee: search engines and social platforms may show different text and images."),
           h("p", { class: "tf-seo-note" }, `Robots: ${tags.robots}`),

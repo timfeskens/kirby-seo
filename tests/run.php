@@ -44,7 +44,8 @@ function fixture(array $options = []): array
                 ]],
                 ['slug' => 'hidden', 'content' => ['title' => 'Hidden']],
                 ['slug' => 'listed', 'num' => 2, 'content' => ['title' => 'Listed', 'robotsIndex' => 'false']],
-                ['slug' => 'duplicate', 'num' => 3, 'content' => ['title' => 'Duplicate', 'canonicalUrl' => 'https://original.example.test/article']],
+                 ['slug' => 'duplicate', 'num' => 3, 'content' => ['title' => 'Duplicate', 'canonicalUrl' => 'https://original.example.test/article']],
+                ['slug' => 'invalid-canonical', 'num' => 4, 'content' => ['title' => 'Invalid override', 'canonicalUrl' => 'not a URL']],
             ],
         ],
     ]);
@@ -78,6 +79,11 @@ check(!str_contains($xml, '/hidden'), 'Unlisted excluded from sitemap');
 check(!str_contains($xml, '/listed'), 'Noindex excluded from sitemap');
 check(!str_contains($xml, '/duplicate'), 'External canonical excluded from sitemap');
 check(str_contains($xml, '/recipes/cake'), 'Child included in sitemap');
+check(str_contains($xml, '/invalid-canonical'), 'Invalid override does not remove valid sitemap URL');
+$xpath = new DOMXPath($doc);
+$xpath->registerNamespace('sm', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+check($xpath->query('//sm:loc[text()="https://example.test"]')->length === 1, 'Homepage included once');
+check(!str_contains($xml, '/error'), 'Error page absent from sitemap');
 check(str_contains(Endpoints::robots()->body(), 'https://example.test/sitemap.xml'), 'Canonical sitemap in robots');
 check(Endpoints::llms()->code() === 404, 'LLM disabled by default');
 check(Endpoints::markdown('recipes/cake')->code() === 404, 'Markdown disabled by default');
@@ -92,9 +98,9 @@ try {
 // Instantiate a real Kirby field and resolve blueprint extensions.
 $blueprint = Kirby\Cms\Blueprint::load('tabs/seo-page');
 check(isset($blueprint['fields']['canonicalUrl']), 'Page blueprint registered');
-$field = new Field('timfeskensSeoPreview', ['name' => 'seoPreview', 'model' => $page]);
+$field = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $page]);
 check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
-$siteField = new Field('timfeskensSeoPreview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
+$siteField = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
 check(is_array($siteField->toArray()['preview']), 'Site preview field serializes');
 $preview = Preview::metadata($page, ['metaTitle' => 'Unsaved title', 'metaDescription' => 'Unsaved description', 'ogImage' => []]);
 check($preview['title'] === 'Unsaved title - Example', 'Unsaved page title preview');
@@ -110,7 +116,44 @@ foreach (['site', 'page'] as $type) {
     $fields = new Kirby\Form\Fields($blueprint->fields(), $model);
     check(count($fields->toArray()) > 5, 'SEO ' . $type . ' blueprint resolves all fields');
     check(isset($fields->toProps()['seopreview']['preview']), 'SEO ' . $type . ' Panel props resolve');
+    $props = $fields->toProps();
+    check($props['seopreview']['type'] === 'timfeskens-seo-preview', 'Panel preview uses kebab-case registry key');
+    foreach (['metatemplate' => '{{ title }} - {{ site.title }}', 'ogtemplate' => '{{ title }}'] as $key => $expected) {
+        check($props[$key]['default'] === $expected, $type . ' literal pattern default');
+        check($props[$key]['placeholder'] === $expected, $type . ' literal pattern placeholder');
+        check($fields->toFormValues()[$key] === $expected, $type . ' empty existing pattern filled');
+    }
+    check($props['twittercardtype']['default'] === 'default', 'Automatic Twitter card default');
+    check($fields->toFormValues()['twittercardtype'] === 'default', 'Automatic Twitter card filled for existing content');
+    check($fields->toFormValues()['robotsindex'] === 'default', 'Automatic robots selector filled');
+    if ($type === 'site') {
+        check($fields->toFormValues()['ogsitename'] === '{{ site.title }}', 'Social site name default filled');
+        check($props['ogsitename']['placeholder'] === '{{ site.title }}', 'Social site name literal placeholder');
+    }
 }
+$pattern = new Field('timfeskens-seo-text', ['name' => 'metaTemplate', 'model' => $page, 'value' => '{{ title }} | Custom']);
+check($pattern->toArray()['value'] === '{{ title }} | Custom', 'Existing custom patterns preserved');
+$customSite = $kirby->site()->clone(['content' => ['title' => 'Example', 'metaTemplate' => '{{ title }} | Custom site']]);
+$customPage = $page->clone(['site' => $customSite]);
+$pattern = new Field('timfeskens-seo-text', ['name' => 'metaTemplate', 'model' => $customPage]);
+check($pattern->toArray()['value'] === '{{ title }} | Custom site', 'Page default uses inherited site pattern');
+check($pattern->toStoredValue() === '', 'Unchanged inherited pattern is not pinned on save');
+$pattern->fill('{{ title }} | Page override');
+check($pattern->toStoredValue() === '{{ title }} | Page override', 'Explicit page override is saved');
+check(Seo::metadata($page->clone(['content' => ['title' => 'Automatic', 'twitterCardType' => 'default']]))['tags']['twitter:card'] === 'summary', 'Automatic Twitter selector resolves to a valid card');
+check($kirby->call('sitemap.xml')->code() === 200, 'Sitemap registered as a working route');
+$description = new Field('timfeskens-seo-textarea', ['name' => 'metaDescription', 'model' => $page]);
+check($description->toArray()['value'] === 'Parent description', 'Description default uses configured inheritance');
+check($description->toArray()['placeholder'] === 'Parent description', 'Description placeholder matches inherited default');
+check($description->toStoredValue() === '', 'Unchanged inherited description is not pinned on save');
+$toggle = new Field('timfeskens-seo-toggle', ['name' => 'useTitleTemplate', 'model' => $page, 'default' => true]);
+check($toggle->toArray()['value'] === true, 'Missing pattern toggle filled with true');
+$toggle->fill(false);
+check($toggle->toArray()['value'] === false, 'Explicit disabled pattern toggle preserved');
+$toggle->fill('true');
+check($toggle->toArray()['value'] === true, 'Stored enabled toggle becomes a boolean');
+$toggle->fill('false');
+check($toggle->toArray()['value'] === false, 'Stored disabled toggle becomes a boolean');
 
 [$kirby, $page] = fixture(['timfeskens.seo.noindex' => true, 'timfeskens.seo.llms.enabled' => true, 'timfeskens.seo.llms.include' => fn () => true, 'timfeskens.seo.indexnow.enabled' => true, 'timfeskens.seo.indexnow.key' => 'abcdefgh12345678']);
 check(!Seo::indexable($page), 'Environment noindex takes precedence');
@@ -196,6 +239,10 @@ $kirby = new App([
             ['slug' => 'home', 'template' => 'home', 'translations' => [['code' => 'nl', 'content' => ['title' => 'Welkom']], ['code' => 'en', 'content' => ['title' => 'Welcome']]]],
             ['slug' => 'over', 'num' => 1, 'translations' => [['code' => 'nl', 'content' => ['title' => 'Over']], ['code' => 'en', 'slug' => 'about', 'content' => ['title' => 'About']]]],
             ['slug' => 'alleen-nl', 'num' => 2, 'translations' => [['code' => 'nl', 'content' => ['title' => 'Nederlands']]]],
+            ['slug' => 'kopie', 'num' => 3, 'translations' => [
+                ['code' => 'nl', 'content' => ['title' => 'Kopie']],
+                ['code' => 'en', 'slug' => 'copy', 'content' => ['title' => 'Copy', 'canonicalUrl' => 'https://original.example.test/copy']],
+            ]],
         ],
     ],
 ]);
@@ -208,5 +255,8 @@ check(Seo::metadata($page, 'en')['title'] === 'About - Example', 'Translated met
 check(Seo::languages($kirby->page('alleen-nl')) === ['nl'], 'Missing translations omitted');
 check(str_contains(Endpoints::sitemap()->body(), 'hreflang="en"'), 'Sitemap language alternates');
 check(str_contains(Seo::render($page), 'hreflang="nl"'), 'HTML language alternates');
+$xml = Endpoints::sitemap()->body();
+check(!str_contains($xml, 'https://example.com/en/copy'), 'Canonical override excluded from sitemap entries and alternates');
+check(str_contains($xml, 'https://example.nl/kopie'), 'Other language remains in sitemap');
 
 echo "Passed {$count} assertions.\n";

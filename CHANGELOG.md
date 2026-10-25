@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3 — 2026-10-25
+
+- Use consistently kebab-case Panel field registration and exercise real Kirby Panel loading in Chromium.
+- Fix field API closures to use the captured page/site model rather than the API route context.
+- Fill existing empty pattern, description, automatic selector and toggle defaults; match placeholders without evaluating SEO tokens early. Preserve existing values and inherited page text on save.
+- Add distinct live Google, Facebook and Twitter/X previews using each platform's metadata and card type.
+- Apply canonical exclusions to sitemap alternates, ignore invalid canonical overrides and use language-specific modification dates.
+- Document automatic sitemap routes and extend regression coverage.
+
 ## 0.1.2
 
 Resolve unsaved site defaults and site-title patterns in live previews without

@@ -22,11 +22,12 @@ final class Seo
             return $value;
         }
         $parent = $page->parent();
-        $inherit = $parent?->content($language)->get('metaInherit')->split() ?? [];
-        if ($parent && (in_array($key, $inherit, true) || (str_starts_with($key, 'robots') && in_array('robots', $inherit, true)))) {
+        $inherit = array_map('strtolower', $parent?->content($language)->get('metaInherit')->split() ?? []);
+        if ($parent && (in_array(strtolower($key), $inherit, true) || (str_starts_with(strtolower($key), 'robots') && in_array('robots', $inherit, true)))) {
             return self::field($parent, $key, $language);
         }
-        return $page->site()->content($language)->get($key);
+        $value = $page->site()->content($language)->get($key);
+        return in_array($value->value(), ['default', '[]'], true) ? new Field($page->site(), $key, '') : $value;
     }
 
     public static function text(mixed $value): string

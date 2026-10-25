@@ -5,12 +5,14 @@ fields:
     label:
       en: Preview
       nl: Voorbeeld
-    type: timfeskensSeoPreview
+    type: timfeskens-seo-preview
   metaTemplate:
     label:
       en: Title pattern
       nl: Titelpatroon
-    type: text
+    type: timfeskens-seo-text
+    default: '{{ title }} - {{ site.title }}'
+    placeholder: '{{ title }} - {{ site.title }}'
     help:
       en: 'Use {{ title }}, {{ page.title }} and {{ site.title }}. Default: {{ title }} - {{ site.title }}.'
       nl: 'Gebruik {{ title }}, {{ page.title }} en {{ site.title }}. Standaard: {{ title }} - {{ site.title }}.'
@@ -18,25 +20,29 @@ fields:
     label:
       en: Meta description
       nl: Meta-omschrijving
-    type: textarea
+    type: timfeskens-seo-textarea
     buttons: false
   ogTemplate:
     label:
       en: Social title pattern
       nl: Titelpatroon voor sociale media
-    type: text
+    type: timfeskens-seo-text
+    default: '{{ title }}'
+    placeholder: '{{ title }}'
     help: '{{ title }}'
   ogDescription:
     label:
       en: Social description
       nl: Omschrijving voor sociale media
-    type: textarea
+    type: timfeskens-seo-textarea
     buttons: false
   ogSiteName:
     label:
       en: Social site name
       nl: Sitenaam voor sociale media
-    type: text
+    type: timfeskens-seo-text
+    default: '{{ site.title }}'
+    placeholder: '{{ site.title }}'
   ogImage:
     label:
       en: Social image
@@ -51,8 +57,15 @@ fields:
     label:
       en: Twitter/X card
       nl: Twitter/X-kaart
-    type: select
+    type: timfeskens-seo-select
+    default: default
+    placeholder:
+      en: Automatic (large image when available, otherwise compact)
+      nl: Automatisch (grote afbeelding indien beschikbaar, anders compact)
     options:
+      default:
+        en: Automatic (large image when available, otherwise compact)
+        nl: Automatisch (grote afbeelding indien beschikbaar, anders compact)
       summary: Compact
       summary_large_image:
         en: Large image

@@ -9,7 +9,7 @@ own license for public use.
 
 - Site defaults, explicit parent inheritance, and page overrides
 - Escaped titles, descriptions, canonical URLs, Open Graph and Twitter/X cards
-- Dutch/English SEO tabs with live search and social previews
+- Dutch/English SEO tabs with separate live Google, Facebook and Twitter/X previews
 - Automatic 1200 × 630 social image crops
 - XML sitemap, `robots.txt`, per-page robots rules, global preview protection
 - Language-aware URLs, translated slugs, `hreflang` and sitemap alternates
@@ -115,6 +115,29 @@ plugin's PHP API, custom fields, or commercial features.
 
 Title patterns support **only** `{{ title }}`, `{{ page.title }}` and
 `{{ site.title }}`; they are not arbitrary query/template execution.
+The Panel fills empty title patterns with `{{ title }} - {{ site.title }}` (Google)
+and `{{ title }}` (social), and the social site name with `{{ site.title }}`.
+Placeholders show the same literal patterns, not prematurely resolved titles.
+Description fields display their configured/inherited fallbacks; robots and card
+selectors start at automatic and both page pattern toggles start enabled.
+Existing overrides are preserved. Unchanged inherited page text is not pinned as
+a page override when saving. Fields without a meaningful default (images, profile
+URLs, canonical overrides and authors) remain empty rather than inventing content.
+
+## Automatic XML sitemap
+
+The plugin serves **`/sitemap.xml` automatically**, enabled by default. `/sitemap`
+redirects permanently to it, and `robots.txt` advertises its canonical URL. No
+static file, cron job or manual regeneration is required: published changes are
+reflected on the next request.
+
+The sitemap includes the homepage and eligible published pages, canonical URLs,
+available content modification dates, and existing language versions with
+`xhtml:link` alternates. Drafts, error pages, noindex pages, custom `include`
+exclusions and URLs canonicalized elsewhere are omitted; unlisted pages require
+explicit indexing permission. Alternates follow those same exclusion rules.
+`noindex => true` returns an empty sitemap and does not advertise it in robots.
+Disable these routes with `'sitemap' => false` if another sitemap owns the URL.
 
 Listed pages and home are indexable by default; unlisted pages require explicit
 permission. Drafts and error pages are always excluded. Unlisted is not a privacy

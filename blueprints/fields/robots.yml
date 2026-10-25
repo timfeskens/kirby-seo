@@ -1,5 +1,8 @@
-type: select
+type: timfeskens-seo-select
 default: default
+placeholder:
+  en: Inherit / automatic
+  nl: Overnemen / automatisch
 options:
   default:
     en: Inherit / automatic

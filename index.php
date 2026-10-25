@@ -45,22 +45,57 @@ Kirby::plugin('timfeskens/seo', [
         'seo' => function (): array { return Seo::metadata($this); },
     ],
     'fields' => [
-        'timfeskensSeoPreview' => [
+        'timfeskens-seo-text' => [
+            'extends' => 'text',
+            'save' => function ($value) { return Preview::stored($this->model(), $this->name(), $value); },
+            'computed' => [
+                'default' => function () { return Preview::default($this->model(), $this->name()); },
+                'placeholder' => function () { return Preview::default($this->model(), $this->name()); },
+                'value' => function () { return $this->value !== '' && $this->value !== null ? $this->value : Preview::default($this->model(), $this->name()); },
+                'help' => function () { return $this->help ? $this->kirby()->kirbytext($this->help) : null; },
+            ],
+        ],
+        'timfeskens-seo-textarea' => [
+            'extends' => 'textarea',
+            'save' => function ($value) { return Preview::stored($this->model(), $this->name(), $value); },
+            'computed' => [
+                'default' => function () { return Preview::default($this->model(), $this->name()); },
+                'placeholder' => function () { return Preview::default($this->model(), $this->name()); },
+                'value' => function () { return $this->value !== '' && $this->value !== null ? $this->value : Preview::default($this->model(), $this->name()); },
+            ],
+        ],
+        'timfeskens-seo-select' => [
+            'extends' => 'select',
+            // Kirby's component inheritance resolves one level only; select itself extends radio.
+            'mixins' => ['options'],
+            'computed' => [
+                'default' => function () { return $this->sanitizeOption($this->default); },
+                'value' => function () { return $this->sanitizeOption($this->value) ?? $this->default(); },
+            ],
+        ],
+        'timfeskens-seo-toggle' => [
+            'extends' => 'toggle',
+            'methods' => ['emptyValue' => function () { return null; }],
+            'computed' => [
+                'value' => function () { return $this->value !== '' && $this->value !== null ? $this->toBool($this->value) : $this->default(); },
+            ],
+        ],
+        'timfeskens-seo-preview' => [
             'save' => false,
             'computed' => [
                 'preview' => function (): array {
                     $model = $this->model();
-                    return Seo::metadata($model instanceof Page ? $model : $model->homePage());
+                    return Preview::metadata($model, []);
                 },
                 'ai' => fn (): bool => Seo::option('ai.enabled', false) === true,
             ],
             'api' => function (): array {
+                $model = $this->model();
                 return [
                     [
                         'pattern' => 'preview',
                         'method' => 'POST',
-                        'action' => function (): array {
-                            $model = $this->model();
+                        'action' => function () use ($model): array {
                             $data = kirby()->request()->get('content', []);
                             if (!is_array($data)) {
                                 $data = [];
@@ -71,8 +106,7 @@ Kirby::plugin('timfeskens/seo', [
                     [
                         'pattern' => 'suggest',
                         'method' => 'POST',
-                        'action' => function (): array {
-                            $model = $this->model();
+                        'action' => function () use ($model): array {
                             if (!$model instanceof Page) {
                                 throw new RuntimeException('Suggestions are available for pages only.');
                             }

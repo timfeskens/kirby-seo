@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.7 — 2026-10-25
+
+- Fix sitemap modification dates on sites using Kirby's `intl` date handler: always emit ISO 8601 using PHP's date handler.
+- Add an original responsive, light/dark sitemap browser view with clickable URLs, entry count, dates, language alternatives and an empty state via `/sitemap.xsl`.
+- Indent the underlying XML and keep the stylesheet on the serving origin, including subdirectory installations and sites with a different canonical domain.
+- Preserve all existing Panel-driven eligibility and canonical/language exclusions; omit unavailable dates rather than inventing them.
+- Add date-handler, stylesheet, responsive browser, empty-state and multilingual regression checks.
+
 ## 0.1.6 — 2026-10-25
 
 - Manage indexing exclusively through the global and per-page robots settings in the Panel; explicit page choices can override global defaults.

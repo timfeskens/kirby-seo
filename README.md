@@ -148,6 +148,17 @@ exclusions and URLs canonicalized elsewhere are omitted; unlisted pages require
 explicit indexing permission. Alternates follow those same exclusion rules.
 Global **Indexing → Disallow** produces an empty sitemap unless individual pages
 explicitly allow indexing. The sitemap follows the same Panel settings as metadata.
+The XML is indented and references a same-origin `/sitemap.xsl` stylesheet for a
+readable browser table with clickable URLs, entry count, modification dates and
+language alternatives. Browsers without XSLT support still receive readable XML;
+search engines consume the unchanged sitemap data.
+Some browsers show an XSLT deprecation warning; this browser-owned notice cannot
+be removed by the plugin. The stylesheet is a convenience, not a dependency for
+indexing or sitemap validity.
+Modification dates use ISO 8601 regardless of the site's configured date handler;
+unavailable dates are
+omitted. Optional `priority` and `changefreq` hints are not generated (Google
+ignores both).
 Disable these routes with `'sitemap' => false` if another sitemap owns the URL.
 
 Listed pages and home are indexable by default; unlisted pages require explicit

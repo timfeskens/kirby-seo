@@ -127,6 +127,7 @@ Kirby::plugin('timfeskens/seo', [
         $routes = [];
         if (Seo::option('sitemap', true)) {
             $routes[] = ['pattern' => 'sitemap.xml', 'action' => fn () => Endpoints::sitemap()];
+            $routes[] = ['pattern' => 'sitemap.xsl', 'action' => fn () => Endpoints::sitemapStylesheet()];
             $routes[] = ['pattern' => 'sitemap', 'action' => fn () => go('sitemap.xml', 301)];
         }
         if (Seo::option('robots', true)) {

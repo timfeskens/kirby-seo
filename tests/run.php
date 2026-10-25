@@ -84,6 +84,34 @@ $xpath = new DOMXPath($doc);
 $xpath->registerNamespace('sm', 'http://www.sitemaps.org/schemas/sitemap/0.9');
 check($xpath->query('//sm:loc[text()="https://example.test"]')->length === 1, 'Homepage included once');
 check(!str_contains($xml, '/error'), 'Error page absent from sitemap');
+check(str_contains($xml, "\n  <url>\n    <loc>"), 'Sitemap XML is indented');
+check(str_contains($xml, 'href="https://preview.example.test/sitemap.xsl"'), 'Stylesheet uses serving origin rather than canonical origin');
+$stylesheet = new DOMDocument();
+check($stylesheet->loadXML(Endpoints::sitemapStylesheet()->body()), 'Stylesheet is valid XML');
+check($stylesheet->documentElement->namespaceURI === 'http://www.w3.org/1999/XSL/Transform', 'Stylesheet is XSLT');
+$lastmods = $xpath->query('//sm:lastmod');
+check($lastmods->length > 0, 'Date regression has actual modification dates');
+foreach (['date', 'intl'] as $handler) {
+    [$dateKirby, $datePage] = fixture(['date.handler' => $handler]);
+    $dates = new DOMDocument();
+    $dates->loadXML(Endpoints::sitemap()->body());
+    $dateXpath = new DOMXPath($dates);
+    $dateXpath->registerNamespace('sm', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+    foreach ($dateXpath->query('//sm:lastmod') as $date) {
+        $parsed = DateTimeImmutable::createFromFormat(DATE_ATOM, $date->textContent);
+        check($parsed !== false && $parsed->format(DATE_ATOM) === $date->textContent, $handler . ' emits valid ISO 8601 lastmod');
+    }
+    $expected = date(DATE_ATOM, $datePage->modified());
+    check($dateXpath->evaluate('string(//sm:url[sm:loc="https://example.test/recipes/cake"]/sm:lastmod)') === $expected, $handler . ' preserves the actual page modification timestamp');
+}
+[$kirby, $page] = fixture();
+$subdirectory = new App([
+    'roots' => ['index' => sys_get_temp_dir() . '/kirby-seo-subdir-' . getmypid()],
+    'urls' => ['index' => 'https://preview.example.test/subdirectory'],
+    'site' => ['children' => [['slug' => 'home', 'template' => 'home', 'content' => ['title' => 'Home']]]],
+]);
+check(str_contains(Endpoints::sitemap()->body(), 'href="https://preview.example.test/subdirectory/sitemap.xsl"'), 'Stylesheet supports installation subdirectories');
+[$kirby, $page] = fixture();
 check(str_contains(Endpoints::robots()->body(), 'https://example.test/sitemap.xml'), 'Canonical sitemap in robots');
 check(Endpoints::llms()->code() === 404, 'LLM disabled by default');
 check(Endpoints::markdown('recipes/cake')->code() === 404, 'Markdown disabled by default');

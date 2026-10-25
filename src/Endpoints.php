@@ -20,30 +20,40 @@ final class Endpoints
 
     public static function sitemap(): Response
     {
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">';
         $escape = fn ($value) => htmlspecialchars((string)$value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        // Use the current installation URL, not a potentially cross-origin canonical base.
+        $stylesheet = rtrim(App::instance()->url('index'), '/') . '/sitemap.xsl';
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<?xml-stylesheet type="text/xsl" href="' . $escape($stylesheet) . '"?>' . "\n"
+            . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">' . "\n";
         foreach (self::pages() as $page) {
             foreach (Seo::languages($page) as $language) {
                 if (!self::sitemapEligible($page, $language)) {
                     continue;
                 }
                 $canonical = Seo::canonical($page, $language);
-                $xml .= '<url><loc>' . $escape($canonical) . '</loc>';
-                $modified = $page->modified('c', languageCode: $language);
+                $xml .= "  <url>\n    <loc>" . $escape($canonical) . "</loc>\n";
+                // ISO 8601 is a PHP format; the site's intl handler interprets 'c' as a weekday.
+                $modified = $page->modified('c', handler: 'date', languageCode: $language);
                 if ($modified) {
-                    $xml .= '<lastmod>' . $escape($modified) . '</lastmod>';
+                    $xml .= '    <lastmod>' . $escape($modified) . "</lastmod>\n";
                 }
                 if ($page->kirby()->multilang()) {
                     foreach (Seo::languages($page) as $alternate) {
                         if (self::sitemapEligible($page, $alternate)) {
-                            $xml .= '<xhtml:link rel="alternate" hreflang="' . $escape($alternate) . '" href="' . $escape(Seo::canonical($page, $alternate)) . '" />';
+                            $xml .= '    <xhtml:link rel="alternate" hreflang="' . $escape($alternate) . '" href="' . $escape(Seo::canonical($page, $alternate)) . '" />' . "\n";
                         }
                     }
                 }
-                $xml .= '</url>';
+                $xml .= "  </url>\n";
             }
         }
-        return new Response($xml . '</urlset>', 'application/xml');
+        return new Response($xml . "</urlset>\n", 'application/xml');
+    }
+
+    public static function sitemapStylesheet(): Response
+    {
+        return new Response(file_get_contents(dirname(__DIR__) . '/assets/sitemap.xsl'), 'text/xsl');
     }
 
     private static function sitemapEligible(Page $page, ?string $language): bool

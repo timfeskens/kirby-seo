@@ -66,7 +66,7 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.evaluate(() => window.app.content.metatitle), 'Changed <script>window.pwned=true</script>', 'Suggestions never overwrite fields');
     assert.deepEqual(errors, [], 'No browser errors');
     await realPanel(browser);
-    console.log('Passed Panel browser checks: real Kirby Panel registration, defaults, responsive 66/33 layout and stacked previews, safe text, manual AI review.');
+    console.log('Passed browser checks: real Kirby Panel, responsive previews, safe text, manual AI review, styled sitemap and empty/multilingual views.');
   } finally {
     await browser.close();
     server.close();
@@ -145,6 +145,38 @@ async function realPanel(browser) {
     assert.match(alias.headers().location, /\/sitemap.xml$/, 'Sitemap alias target');
     const robots = await page.request.get(`http://127.0.0.1:${port}/robots.txt`);
     assert.match(await robots.text(), /Sitemap: https:\/\/example.test\/sitemap.xml/, 'Sitemap advertised in robots');
+    const stylesheet = await page.request.get(`http://127.0.0.1:${port}/sitemap.xsl`);
+    assert.equal(stylesheet.status(), 200, 'Stylesheet route available');
+    assert.match(stylesheet.headers()['content-type'], /text\/xsl/, 'Stylesheet content type');
+    await page.goto(`http://127.0.0.1:${port}/sitemap.xml`);
+    await page.getByRole('heading', {name: 'XML Sitemap', exact: true}).waitFor();
+    assert.equal(await page.locator('tbody tr').count(), 2, 'Browser renders sitemap entries');
+    assert.equal(await page.locator('.count').innerText(), '2 URLs', 'Sitemap displays entry count');
+    assert.equal(await page.getByRole('link', {name: 'https://example.test/test', exact: true}).getAttribute('href'), 'https://example.test/test', 'Sitemap URLs clickable');
+    for (const width of [1440, 390, 375]) {
+      await page.setViewportSize({width, height: 900});
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Sitemap ${width}px has no horizontal overflow`);
+      if (process.env.SEO_PANEL_SCREENSHOTS) {
+        fs.mkdirSync(process.env.SEO_PANEL_SCREENSHOTS, {recursive: true});
+        await page.screenshot({path: path.join(process.env.SEO_PANEL_SCREENSHOTS, `sitemap-${width}.png`), fullPage: true});
+      }
+    }
+    // Exercise empty/multilingual views and escaping without changing persistent content.
+    const rendered = await page.evaluate(async () => {
+      const processor = new XSLTProcessor();
+      const parser = new DOMParser();
+      const xsl = await (await fetch('/sitemap.xsl')).text();
+      processor.importStylesheet(parser.parseFromString(xsl, 'application/xml'));
+      const render = xml => processor.transformToDocument(parser.parseFromString(xml, 'application/xml'));
+      const empty = render('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+      const multilingual = render('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml"><url><loc>https://example.test/&lt;script&gt;</loc><xhtml:link rel="alternate" hreflang="nl" href="https://example.nl/"/></url></urlset>');
+      return {empty: empty.querySelector('.empty').textContent, count: empty.querySelector('.count').textContent, language: multilingual.querySelector('.alternates a').getAttribute('hreflang'), scripts: multilingual.querySelectorAll('script').length, missing: multilingual.querySelector('tbody td:last-child').textContent.trim()};
+    });
+    assert.match(rendered.empty, /No indexable URLs/);
+    assert.equal(rendered.count, '0 URLs');
+    assert.equal(rendered.language, 'nl');
+    assert.equal(rendered.scripts, 0, 'Stylesheet escapes URL text');
+    assert.equal(rendered.missing, 'Not available', 'Missing dates not fabricated');
     assert.deepEqual(errors, [], 'No real Panel browser errors');
   } catch (error) {
     console.error(errors);

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.12 — 2026-10-26
+
+- Subscribe directly to Kirby's reactive unsaved content store and throttle
+  preview requests so updates continue during typing, before blur or save.
+  Invalidate stale responses as soon as input changes.
+- Preview site defaults in the global SEO tab without saved homepage overrides
+  masking edits. Label the example and link to actual homepage SEO settings;
+  preserve all stored overrides and the page/frontend metadata cascade.
+- Add real Panel regression tests for uninterrupted typing in visual templates,
+  descriptions and page titles, with existing homepage overrides and social images.
+
 ## 0.1.11 — 2026-10-26
 
 - Fix social images disappearing from live previews: normalize Kirby file-picker

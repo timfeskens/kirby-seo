@@ -69,7 +69,19 @@ final class Preview
         if (!$model instanceof Site) {
             throw new \InvalidArgumentException('SEO previews support pages and the site only.');
         }
-        // Pass isolated unsaved site defaults explicitly, without global mutation.
-        return Seo::metadata($model->homePage()->clone(['site' => $model]));
+        // Preview the settings being edited, not unrelated saved homepage
+        // overrides. Keep the real title/content for the example and isolate
+        // all SEO fields on a clone; actual page output retains its overrides.
+        $home = $model->homePage();
+        $keys = array_flip(array_map('strtolower', $allowed));
+        unset($keys['title']);
+        $home = $home->clone([
+            'site' => $model,
+            'content' => array_replace($home->content()->toArray(), array_fill_keys(array_keys($keys), '')),
+        ]);
+        return Seo::metadata($home) + [
+            'scope' => 'site-defaults',
+            'homePanelUrl' => $home->panel()->url() . '?tab=seo',
+        ];
     }
 }

@@ -54,7 +54,7 @@ $kirby = new Kirby\Cms\App([
     ],
     'users' => [['id' => 'seo-test', 'email' => 'seo@example.test', 'role' => 'admin', 'language' => 'nl']],
     'site' => ['content' => ['title' => 'Example', 'ogImage' => '- social.png'], 'files' => [['filename' => 'social.png']], 'children' => [
-        ['slug' => 'home', 'content' => ['title' => 'Home']],
+        ['slug' => 'home', 'content' => ['title' => 'Home', 'metaTemplate' => '{{ site.title }} | Developer', 'metaDescription' => 'Saved homepage description', 'ogTemplate' => 'Homepage social override', 'ogDescription' => 'Saved homepage social description', 'useTitleTemplate' => 'false', 'useOgTemplate' => 'false']],
         ['slug' => 'error', 'content' => ['title' => 'Error']],
         ['slug' => 'test', 'num' => 1, 'content' => ['title' => 'Test page']],
     ]],

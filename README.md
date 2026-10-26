@@ -19,6 +19,15 @@ own license for public use.
 - Optional Google Search Console queries and Ahrefs metrics in the Panel
 
 Previews are guidance, not ranking scores or guarantees.
+
+Previews update while typing, without blurring a field or saving. The global SEO
+tab previews **site defaults**, using the homepage title/URL as an example but
+ignoring its SEO overrides. The homepage SEO link opens its actual page settings;
+page previews and rendered metadata retain page-specific overrides. To apply
+global defaults to an existing page, clear its title pattern/description
+overrides and leave the title-pattern toggle enabled. Social title patterns and
+descriptions are separate settings; an explicit social description does not
+change when the search description changes.
 Google and social platforms can choose different titles, snippets and images.
 SEO tabs use a two-column layout: approximately two-thirds settings and one-third
 previews, with Google, Facebook and Twitter/X stacked vertically. When the Panel

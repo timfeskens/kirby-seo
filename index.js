@@ -184,21 +184,19 @@ panel.plugin("timfeskens/seo", {
         return { current: this.preview, timer: null, request: 0, suggestion: null, busy: false, error: "" };
       },
       computed: {
-        // Kirby's model view owns the reactive, unsaved form values.
-        view() {
-          let parent = this.$parent;
-          while (parent && !(parent.versions && parent.content)) parent = parent.$parent;
-          return parent;
-        },
-        values() { return this.view?.content || {}; },
+        // Read Kirby's reactive form store, not a component ancestor. The store
+        // is merged synchronously on input, before lazy draft persistence.
+        values() { return this.$panel.content.version("changes") || {}; },
         nl() { return this.$panel.translation?.code?.startsWith("nl") || document.documentElement.lang.startsWith("nl"); },
       },
       watch: {
         values: {
           deep: true,
           handler() {
-            clearTimeout(this.timer);
-            this.timer = setTimeout(this.refresh, 300);
+            // Invalidate older responses immediately and throttle (not debounce)
+            // so the preview also updates during uninterrupted typing.
+            this.request++;
+            if (!this.timer) this.timer = setTimeout(() => { this.timer = null; this.refresh(); }, 150);
           },
         },
       },
@@ -234,6 +232,10 @@ panel.plugin("timfeskens/seo", {
         let domain = meta.canonical || "";
         try { domain = new URL(domain).hostname; } catch (_) {}
         return h("k-field", { props: { label: this.label } }, [
+          meta.scope === "site-defaults" ? h("p", { class: "tf-seo-note" }, [
+            this.nl ? "Voorbeeld van de websitestandaarden met de homepagina als voorbeeld. Eigen SEO-instellingen van pagina’s hebben voorrang op de website. " : "Site defaults using the homepage as an example. Page-specific SEO settings take precedence on the website. ",
+            h("a", { attrs: { href: meta.homePanelUrl } }, this.nl ? "SEO van de homepagina bewerken" : "Edit homepage SEO"),
+          ]) : null,
           h("div", { class: "tf-seo-previews" }, [
             card("Google", [
               h("p", { class: "tf-seo-url" }, meta.canonical),

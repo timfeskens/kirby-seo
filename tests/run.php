@@ -160,6 +160,22 @@ $preview = Preview::metadata($kirby->site(), ['title' => 'Unsaved site', 'metaDe
 check($preview['title'] === 'Home - Unsaved site', 'Unsaved site title pattern');
 check($preview['tags']['description'] === 'Unsaved site description', 'Unsaved site description preview');
 check($kirby->site()->title()->value() === 'Example', 'Preview restores site context');
+$overrideSite = $kirby->site()->clone([]);
+$overrideHome = $overrideSite->homePage()->clone(['site' => $overrideSite, 'content' => [
+    'title' => 'Home', 'metaTitle' => 'Homepage title override', 'metaTemplate' => '{{ site.title }} | Developer',
+    'metaDescription' => 'Homepage description override', 'useTitleTemplate' => 'false',
+    'ogTemplate' => 'Homepage social override', 'ogDescription' => 'Homepage social description override', 'useOgTemplate' => 'false',
+]]);
+$overrideSite->children()->set('home', $overrideHome);
+$preview = Preview::metadata($overrideSite, ['metaTemplate' => '{{ title }} - {{ site.title }} test', 'metaDescription' => 'New global description', 'ogTemplate' => '{{ title }} social', 'ogDescription' => 'New global social description']);
+check($preview['title'] === 'Home - Example test', 'Global preview is not masked by homepage title overrides or disabled title patterns');
+check($preview['tags']['description'] === 'New global description', 'Global preview ignores saved homepage description overrides');
+check($preview['tags']['og:title'] === 'Home social', 'Global preview uses global social pattern');
+check($preview['tags']['twitter:description'] === 'New global social description', 'Global preview uses global social description');
+check($preview['scope'] === 'site-defaults' && str_ends_with($preview['homePanelUrl'], '/pages/home?tab=seo'), 'Global preview labels its scope and links to homepage SEO');
+check(Preview::metadata($overrideHome, [])['tags']['description'] === 'Homepage description override', 'Page preview retains explicit overrides');
+check(Seo::metadata($overrideHome)['title'] === 'Homepage title override', 'Global preview never changes real homepage metadata');
+check($overrideHome->metaTemplate()->value() === '{{ site.title }} | Developer', 'Global preview preserves migrated homepage fields');
 foreach (['site', 'page'] as $type) {
     $model = $type === 'site' ? $kirby->site() : $page;
     $blueprint = new Kirby\Cms\Blueprint(['name' => 'seo-test-' . $type, 'model' => $model, 'tabs' => ['seo' => 'tabs/seo-' . $type]]);

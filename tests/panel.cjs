@@ -30,7 +30,9 @@ const server = http.createServer((req, res) => {
     Vue.component('k-field', {render(h) { return h('div', this.$slots.default); }});
     Vue.component('k-button', {props: ['disabled'], render(h) {return h('button', {attrs: {disabled: this.disabled}, on: {click: () => this.$emit('click')}}, this.$slots.default); }});
     window.calls = [];
-    Vue.prototype.$panel = {translation: {code: 'nl'}};
+    const form = Vue.observable({changes: {metatitle: 'First', metadescription: 'Description'}});
+    window.form = form;
+    Vue.prototype.$panel = {translation: {code: 'nl'}, content: {version: () => form.changes}};
     Vue.prototype.$api = {async post(url, data) {
        window.calls.push({url, data});
        if (url.endsWith('/data/ahrefs')) return {status: 'connected', metrics: {org_keywords: 7, org_traffic: 42}, date: '2026-10-25'};
@@ -39,7 +41,7 @@ const server = http.createServer((req, res) => {
       const title = data.content.metatitle || 'Default';
        return {title, canonical: 'https://example.test/page', tags: {'og:title': title, 'og:site_name': 'Example', 'og:description': 'Facebook description', 'twitter:title': 'Twitter title', 'twitter:description': 'Twitter description', 'twitter:card': 'summary', description: data.content.metadescription, robots: 'noindex'}};
     }};
-    window.app = new Vue({el: '#app', data: {versions: {changes: {}}, content: {metatitle: 'First', metadescription: 'Description'}},
+    window.app = new Vue({el: '#app',
       render(h) { return h('div', [h('k-timfeskens-seo-preview-field', {props: {label: 'SEO', ai: true, endpoints: {field: 'pages/test/fields/seopreview'}, preview: {title: 'Initial', canonical: 'https://example.test/page', tags: {description: 'Initial description', robots: 'noindex'}}}}), h('k-timfeskens-seo-analytics-field', {props: {providers: ['searchConsole', 'ahrefs'], endpoints: {field: 'pages/test/fields/seoanalytics'}}})]); }
     });
     </script></body></html>`);
@@ -55,7 +57,7 @@ const server = http.createServer((req, res) => {
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.getByRole('region', {name: 'Google', exact: true}).waitFor();
     for (const name of ['Google', 'Facebook', 'Twitter / X']) assert.equal(await page.getByRole('region', {name, exact: true}).count(), 1, `${name} preview`);
-    await page.evaluate(() => {window.app.content.metatitle = 'Changed <script>window.pwned=true</script>';});
+    await page.evaluate(() => {window.form.changes = {...window.form.changes, metatitle: 'Changed <script>window.pwned=true</script>'};});
     await page.getByText('Changed <script>window.pwned=true</script>', {exact: true}).first().waitFor();
     assert.equal(await page.evaluate(() => window.pwned), undefined, 'Preview renders escaped text');
     await page.getByRole('region', {name: 'Twitter / X', exact: true}).getByText('Twitter title', {exact: true}).waitFor();
@@ -65,7 +67,7 @@ const server = http.createServer((req, res) => {
     page.on('dialog', dialog => dialog.accept());
     await page.getByRole('button', {name: 'AI-suggestie maken'}).click();
     await page.getByText('Review me', {exact: true}).waitFor();
-    assert.equal(await page.evaluate(() => window.app.content.metatitle), 'Changed <script>window.pwned=true</script>', 'Suggestions never overwrite fields');
+    assert.equal(await page.evaluate(() => window.form.changes.metatitle), 'Changed <script>window.pwned=true</script>', 'Suggestions never overwrite fields');
     const queries = page.getByRole('region', {name: 'Google Search Console', exact: true});
     assert.equal(await queries.locator('tbody tr').count(), 10, 'GSC shows top 10 queries');
     assert.equal(await queries.locator('tbody tr').first().locator('td').first().innerText(), 'cake <script>11', 'GSC sorts by clicks and escapes query strings');
@@ -151,6 +153,10 @@ async function realPanel(browser, analytics = false) {
     await titleField.getByRole('button', {name: 'Code', exact: true}).click();
     await page.locator('input[name="metatemplate"]').fill('{{ title }} | {{ site.title }}');
     await titleField.getByRole('button', {name: 'Visueel', exact: true}).click();
+    await typingPreview(page, titleField.getByRole('textbox'), 'Home | Example', 'Google');
+    await titleField.getByRole('button', {name: 'Code', exact: true}).click();
+    await page.locator('input[name="metatemplate"]').fill('{{ title }} | {{ site.title }}');
+    await titleField.getByRole('button', {name: 'Visueel', exact: true}).click();
     await page.locator('.k-field-name-ogtemplate').getByRole('button', {name: 'Code', exact: true}).click();
     await page.locator('input[name="ogtemplate"]').fill('{{ title }} social');
     await page.getByRole('region', {name: 'Facebook', exact: true}).getByText('Home social', {exact: true}).waitFor();
@@ -167,6 +173,9 @@ async function realPanel(browser, analytics = false) {
     await siteNameField.getByRole('button', {name: 'Visueel', exact: true}).click();
     await page.locator('textarea[name="metadescription"]').fill('An unsaved description');
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('An unsaved description', {exact: true}).waitFor();
+    await typingPreview(page, page.locator('textarea[name="metadescription"]'), 'An unsaved description', 'Google');
+    await typingPreview(page, siteNameField.getByRole('textbox'), 'Example / Home', 'Facebook');
+    await page.getByRole('link', {name: 'SEO van de homepagina bewerken'}).waitFor();
     await page.setViewportSize({width: 390, height: 844});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Real Panel mobile overflow');
     await page.goto(`http://127.0.0.1:${port}/panel/pages/test?tab=seo`);
@@ -180,10 +189,16 @@ async function realPanel(browser, analytics = false) {
     assert.equal(await page.locator('input[name="useogtemplate"]').isChecked(), true, 'Page social pattern enabled by default');
     await page.locator('input[name="metatitle"]').fill('Changed page');
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('Changed page - Example', {exact: true}).waitFor();
+    await typingPreview(page, page.locator('input[name="metatitle"]'), 'Changed page', 'Google', ' - Example');
     const longTitle = 'LongUnbrokenTitle'.repeat(20);
     await page.locator('input[name="metatitle"]').fill(longTitle);
     await page.getByRole('region', {name: 'Google', exact: true}).getByText(`${longTitle} - Example`, {exact: true}).waitFor();
     await responsiveLayout(page, 'page-long-title');
+    await page.goto(`http://127.0.0.1:${port}/panel/pages/home?tab=seo`);
+    await page.getByRole('region', {name: 'Google', exact: true}).getByText('Saved homepage description', {exact: true}).waitFor();
+    await page.getByRole('region', {name: 'Google', exact: true}).getByText('Home', {exact: true}).waitFor();
+    assert.equal(await page.locator('input[name="usetitletemplate"]').isChecked(), false, 'Homepage retains its explicit pattern toggle');
+    assert.equal(await page.getByRole('link', {name: 'SEO van de homepagina bewerken'}).count(), 0, 'Page previews show actual page metadata, not global examples');
     const sitemap = await page.request.get(`http://127.0.0.1:${port}/sitemap.xml`);
     assert.equal(sitemap.status(), 200, 'Automatic sitemap route');
     assert.match(sitemap.headers()['content-type'], /application\/xml/, 'Sitemap XML content type');
@@ -289,4 +304,24 @@ async function socialPreviewImages(page) {
     }, platform);
     assert.equal(await image.count(), 1, `${platform} has a loaded social image`);
   }
+}
+
+async function typingPreview(page, input, initial, platform, suffix = '') {
+  await input.focus();
+  await input.evaluate(node => {
+    if (node.isContentEditable) {
+      const range = document.createRange();
+      range.selectNodeContents(node); range.collapse(false);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+    } else node.setSelectionRange(node.value.length, node.value.length);
+  });
+  const typing = input.pressSequentially(' live typing continues', {delay: 80});
+  const preview = page.getByRole('region', {name: platform, exact: true});
+  await page.waitForFunction(({platform, initial, suffix}) => {
+    const text = document.querySelector(`section[aria-label="${platform}"]`).textContent;
+    return text.includes(`${initial} live`) && !text.includes(`${initial} live typing continues${suffix}`);
+  }, {platform, initial, suffix});
+  assert.equal(await input.evaluate(node => node === document.activeElement), true, 'Preview updates before blur or save');
+  await typing;
+  await preview.getByText(`${initial} live typing continues${suffix}`, {exact: true}).waitFor();
 }

@@ -127,7 +127,8 @@ plugin's PHP API, custom fields, or commercial features.
 
 Title patterns support **only** `{{ title }}`, `{{ page.title }}` and
 `{{ site.title }}`; they are not arbitrary query/template execution.
-The visual editor inserts these as labeled chips; separators and other text remain
+Title patterns and the social site name use the same visual editor with labeled
+variable chips; separators and other text remain
 editable. **Code** switches to the original plain string, so existing content stays
 portable. Tokens without surrounding whitespace (e.g. `{{title}}`) also resolve.
 The Panel fills empty title patterns with `{{ title }} - {{ site.title }}` (Google)

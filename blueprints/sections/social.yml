@@ -25,9 +25,12 @@ fields:
     label:
       en: Social site name
       nl: Sitenaam voor sociale media
-    type: timfeskens-seo-text
+    type: timfeskens-seo-template
     default: '{{ site.title }}'
     placeholder: '{{ site.title }}'
+    help:
+      en: Insert title variables or type text. The stored pattern stays compatible with existing content.
+      nl: Voeg titelvariabelen toe of typ tekst. Het opgeslagen patroon blijft compatibel met bestaande inhoud.
   ogImage:
     label:
       en: Social image

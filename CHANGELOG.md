@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.10 — 2026-10-26
+
+- Use the same variable-chip template editor for social site names and social
+  title patterns, preserving the `ogSiteName` key and existing string values.
+- Add repository instructions requiring migration compatibility with
+  tobimori/kirby-seo and regression tests for shared content formats.
+
 ## 0.1.9 — 2026-10-26
 
 - Add an independent visual title-template field with insertable variable chips,

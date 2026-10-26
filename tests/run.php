@@ -196,6 +196,9 @@ foreach (['site', 'page'] as $type) {
     if ($type === 'site') {
         check($fields->toFormValues()['ogsitename'] === '{{ site.title }}', 'Social site name default filled');
         check($props['ogsitename']['placeholder'] === '{{ site.title }}', 'Social site name literal placeholder');
+        check($props['ogsitename']['type'] === 'timfeskens-seo-template', 'Social site name uses the same variable editor as title patterns');
+        check(Preview::metadata($kirby->site(), ['ogSiteName' => '{{ site.title }} / {{ title }}'])['tags']['og:site_name'] === 'Example / Home', 'Social site name resolves the shared template variables');
+        check(Preview::metadata($kirby->site(), ['ogSiteName' => 'Existing brand'])['tags']['og:site_name'] === 'Existing brand', 'Migrated plain social site names remain unchanged');
     }
 }
 $legacy = $page->clone(['content' => array_replace($page->content()->toArray(), ['robotsArchive' => 'disallow'])]);

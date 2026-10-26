@@ -127,16 +127,10 @@ async function realPanel(browser, analytics = false) {
     }
     await responsiveLayout(page, 'site');
     for (const [name, expected] of [['metatemplate', '{{ title }} - {{ site.title }}'], ['ogtemplate', '{{ title }}'], ['ogsitename', '{{ site.title }}']]) {
-      if (name === 'ogsitename') {
-        const input = page.locator(`input[name="${name}"]`);
-        assert.equal(await input.inputValue(), expected, `${name} default in real Panel`);
-        assert.equal(await input.getAttribute('placeholder'), expected, `${name} placeholder in real Panel`);
-      } else {
-        assert.equal(await page.locator(`.k-field-name-${name} .tf-seo-token`).count(), name === 'metatemplate' ? 2 : 1, 'Template variables render as chips');
-        await page.locator(`.k-field-name-${name}`).getByRole('button', {name: 'Code', exact: true}).click();
-        assert.equal(await page.locator(`input[name="${name}"]`).inputValue(), expected, 'Stored pattern is unchanged');
-        await page.locator(`.k-field-name-${name}`).getByRole('button', {name: 'Visueel', exact: true}).click();
-      }
+      assert.equal(await page.locator(`.k-field-name-${name} .tf-seo-token`).count(), name === 'metatemplate' ? 2 : 1, 'Template variables render as chips');
+      await page.locator(`.k-field-name-${name}`).getByRole('button', {name: 'Code', exact: true}).click();
+      assert.equal(await page.locator(`input[name="${name}"]`).inputValue(), expected, 'Stored pattern is unchanged');
+      await page.locator(`.k-field-name-${name}`).getByRole('button', {name: 'Visueel', exact: true}).click();
     }
     assert.equal(await page.locator('select[name="twittercardtype"]').inputValue(), 'default', 'Automatic card selection filled');
     assert.equal(await page.locator('select[name="robotsindex"]').inputValue(), 'default', 'Automatic indexing selection filled');
@@ -160,6 +154,15 @@ async function realPanel(browser, analytics = false) {
     await page.locator('input[name="ogtemplate"]').fill('{{ title }} social');
     await page.getByRole('region', {name: 'Facebook', exact: true}).getByText('Home social', {exact: true}).waitFor();
     await page.getByRole('region', {name: 'Twitter / X', exact: true}).getByText('Home social', {exact: true}).waitFor();
+    const siteNameField = page.locator('.k-field-name-ogsitename');
+    await siteNameField.getByRole('textbox').fill('');
+    await siteNameField.getByRole('button', {name: 'Invoegen: Websitetitel', exact: true}).click();
+    await siteNameField.getByRole('textbox').pressSequentially(' / ');
+    await siteNameField.getByRole('button', {name: 'Invoegen: Titel', exact: true}).click();
+    await page.getByRole('region', {name: 'Facebook', exact: true}).getByText('Example / Home', {exact: true}).waitFor();
+    await siteNameField.getByRole('button', {name: 'Code', exact: true}).click();
+    assert.equal(await page.locator('input[name="ogsitename"]').inputValue(), '{{ site.title }} / {{ title }}', 'Site name chips retain the ogSiteName string format');
+    await siteNameField.getByRole('button', {name: 'Visueel', exact: true}).click();
     await page.locator('textarea[name="metadescription"]').fill('An unsaved description');
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('An unsaved description', {exact: true}).waitFor();
     await page.setViewportSize({width: 390, height: 844});

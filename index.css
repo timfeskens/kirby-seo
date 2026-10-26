@@ -41,4 +41,8 @@
 .tf-seo-skeleton span { display: block; height: .85rem; border-radius: .25rem; background: var(--color-gray-300, #dedede); opacity: .65; }
 .tf-seo-skeleton span:nth-child(2) { width: 75%; }
 .tf-seo-skeleton span:nth-child(3) { width: 55%; }
+.tf-seo-skeleton span { animation: tf-seo-pulse 1.4s ease-in-out infinite; }
+.tf-seo-skeleton-social span:first-child { height: auto; aspect-ratio: 1200 / 630; }
+@keyframes tf-seo-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .tf-seo-skeleton span { animation: none; } }
 .tf-seo-metrics { margin-block: .75rem; }

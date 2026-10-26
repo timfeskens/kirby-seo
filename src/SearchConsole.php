@@ -149,7 +149,11 @@ final class SearchConsole
 
     private static function properties(): array
     {
-        $result = Analytics::request('https://www.googleapis.com/webmasters/v3/sites', ['method' => 'GET', 'headers' => ['Authorization' => 'Bearer ' . self::accessToken()]]);
+        $tokens = self::tokens();
+        $result = Analytics::cached('gsc-properties:' . ($tokens['connection'] ?? hash('sha256', $tokens['refresh_token'] ?? '')), static fn (): array => Analytics::request(
+            'https://www.googleapis.com/webmasters/v3/sites',
+            ['method' => 'GET', 'headers' => ['Authorization' => 'Bearer ' . self::accessToken()]],
+        ), 5);
         return array_values(array_filter(array_column($result['siteEntry'] ?? [], 'siteUrl'), 'is_string'));
     }
 

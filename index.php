@@ -125,10 +125,6 @@ Kirby::plugin('timfeskens/seo', [
         'timfeskens-seo-preview' => [
             'save' => false,
             'computed' => [
-                'preview' => function (): array {
-                    $model = $this->model();
-                    return Preview::metadata($model, []);
-                },
                 'ai' => fn (): bool => Seo::option('ai.enabled', false) === true,
             ],
             'api' => function (): array {

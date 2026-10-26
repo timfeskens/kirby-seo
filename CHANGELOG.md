@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.14 — 2026-10-26
+
+- Defer preview metadata until after the Panel form loads instead of computing it
+  during field serialization and again on mount. Show accessible per-platform
+  skeletons, respect reduced motion, and retain loaded previews during edits.
+- Classify Google API-disabled, revoked-access, permission and quota failures
+  without exposing provider responses or credentials. Link administrators directly
+  to API activation; reconnecting cannot enable a disabled Google Cloud API.
+- Cache accessible Search Console properties for five minutes and prevent duplicate
+  in-flight report loads. Keep query reports cached for 24 hours.
+- Add PHP and real Panel browser regressions for deferred metadata, usable settings
+  while previews load, safe error codes and loading placeholders.
+
 ## 0.1.13 — 2026-10-26
 
 - Default optional Ahrefs reports to free Domain Rating with domain-wide caching,

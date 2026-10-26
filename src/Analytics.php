@@ -53,21 +53,26 @@ final class Analytics
             }
             $body = curl_exec($curl);
             $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-            if ($body === false || $status < 200 || $status >= 300) {
+            if ($body === false) {
                 throw new RuntimeException();
             }
             $data = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
-            if (!is_array($data) || isset($data['error'])) {
+            if (!is_array($data)) {
                 throw new RuntimeException();
             }
+            if ($status < 200 || $status >= 300 || isset($data['error'])) {
+                throw AnalyticsException::response($data, $status);
+            }
             return $data;
+        } catch (AnalyticsException $error) {
+            throw $error;
         } catch (\Throwable) {
             // Upstream errors can contain request credentials. Never propagate them.
             throw new RuntimeException('Analytics request failed. Check credentials, access and API quota.');
         }
     }
 
-    public static function cached(string $key, callable $load): array
+    public static function cached(string $key, callable $load, int $minutes = 1440): array
     {
         $cache = App::instance()->cache('timfeskens.seo');
         $key = 'analytics-' . hash('sha256', $key);
@@ -76,7 +81,7 @@ final class Analytics
             return $value;
         }
         $value = $load();
-        $cache->set($key, $value, 1440);
+        $cache->set($key, $value, $minutes);
         return $value;
     }
 
@@ -92,6 +97,8 @@ final class Analytics
         }
         try {
             return $provider === 'searchConsole' ? SearchConsole::data($model) : Ahrefs::data($model);
+        } catch (AnalyticsException $error) {
+            return ['status' => 'error', 'reason' => $error->reason, 'admin' => App::instance()->user()?->isAdmin() === true];
         } catch (\Throwable) {
             return ['status' => 'error', 'admin' => App::instance()->user()?->isAdmin() === true];
         }

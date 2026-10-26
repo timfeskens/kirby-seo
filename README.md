@@ -192,7 +192,11 @@ shows search queries with clicks, impressions, CTR and average position. The
 reports section sits **below the Google/Facebook/X previews** and is not a preview
 of search results. Its summary covers returned queries, not guaranteed property
 totals: Google may omit anonymized queries. Loading reports show accessible
-skeleton placeholders; live previews keep their existing content while updating.
+skeleton placeholders. Initial previews also show per-platform skeletons, with
+metadata loaded asynchronously so the settings form is usable immediately. This
+avoids calculating the same metadata during form loading and again on mount;
+live previews keep their existing content while updating. Skeleton animation
+respects reduced-motion preferences.
 Only SEO-relevant edits trigger preview requests; requests are throttled,
 single-flight and coalesced to the latest values, with stale responses ignored.
 The top
@@ -201,6 +205,15 @@ The top
 by **exact canonical URL**, while Site queries cover the selected property. Data
 covers 28 days ending three days ago to avoid incomplete recent data and is cached
 for 24 hours. Empty reports and provider failures do not affect public metadata.
+Accessible property lists are cached for five minutes per Google connection.
+
+The Panel distinguishes a disabled Google API, revoked/expired Google access,
+property permission errors and quota limits using fixed, safe error codes. If it
+asks you to enable the API, select the **same Google Cloud project that owns the
+OAuth client** and enable **Google Search Console API**, wait for activation and
+retry. A successful Google login does not enable this API; reconnecting alone
+cannot resolve `accessNotConfigured` / `SERVICE_DISABLED`. Provider messages,
+tokens and client credentials are never returned to the Panel or logged.
 
 1. Select or create a project in the [Google Cloud Console](https://console.cloud.google.com/projectselector2),
    then enable the **Google Search Console API** in the

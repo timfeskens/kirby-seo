@@ -98,6 +98,7 @@ panel.plugin("timfeskens/seo", {
       mounted() { this.providers.forEach(provider => this.load(provider)); },
       methods: {
         async load(provider) {
+          if (this.busy[provider]) return;
           this.$set(this.busy, provider, true);
           try { this.$set(this.results, provider, await this.$api.post(`${this.endpoints.field}/data/${provider}`)); }
           catch (_) { this.$set(this.results, provider, { status: "error" }); }
@@ -134,13 +135,20 @@ panel.plugin("timfeskens/seo", {
           error: text("Could not load data. Check credentials, access, private token storage and API quota.", "Gegevens konden niet worden geladen. Controleer de inloggegevens, toegang, privéopslag voor tokens en het API-quotum."),
           excluded: text("Analytics are not requested for pages excluded from indexing.", "Voor pagina’s die niet geïndexeerd mogen worden, worden geen gegevens opgevraagd."),
         };
+        const errors = {
+          apiDisabled: text("Enable the Google Search Console API in the Google Cloud project used by your OAuth credentials, then retry. Reconnecting will not enable the API.", "Schakel de Google Search Console API in voor het Google Cloud-project van je OAuth-inloggegevens en probeer opnieuw. Opnieuw verbinden schakelt de API niet in."),
+          reconnect: text("Google access has expired or was revoked. Reconnect your Google account.", "De Google-toegang is verlopen of ingetrokken. Verbind je Google-account opnieuw."),
+          accessDenied: text("This Google account cannot access the selected property. Check Search Console permissions or choose another property.", "Dit Google-account heeft geen toegang tot de gekozen property. Controleer de rechten in Search Console of kies een andere property."),
+          quota: text("The API quota has been reached. Try again later or check the quota in Google Cloud.", "Het API-quotum is bereikt. Probeer het later opnieuw of controleer het quotum in Google Cloud."),
+        };
         return h("div", { class: "tf-seo-analytics" }, [h("h2", this.label || text("Search performance", "Zoekprestaties")), ...this.providers.map(provider => {
           const result = this.results[provider];
           const gsc = provider === "searchConsole";
           const children = [h("h3", gsc ? "Google Search Console" : "Ahrefs")];
           if (!result || this.busy[provider]) children.push(h("div", { class: "tf-seo-skeleton", attrs: { role: "status", "aria-label": text("Loading reports", "Rapporten laden") } }, [h("span"), h("span"), h("span")]));
           else if (result.status !== "connected") {
-            children.push(h("p", { attrs: { role: "status" } }, !gsc && result.status === "credentials" ? text("Free Domain Rating needs a free Ahrefs API key. Add it to private config; no paid subscription is required.", "Gratis Domain Rating vereist een gratis Ahrefs API-sleutel. Voeg deze toe aan de privéconfiguratie; een betaald abonnement is niet nodig.") : messages[result.status] || messages.error));
+            children.push(h("p", { attrs: { role: "status" } }, !gsc && result.status === "credentials" ? text("Free Domain Rating needs a free Ahrefs API key. Add it to private config; no paid subscription is required.", "Gratis Domain Rating vereist een gratis Ahrefs API-sleutel. Voeg deze toe aan de privéconfiguratie; een betaald abonnement is niet nodig.") : (gsc && result.status === "error" && errors[result.reason]) || messages[result.status] || messages.error));
+            if (gsc && result.reason === "apiDisabled" && result.admin) children.push(h("a", { attrs: { href: "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com", target: "_blank", rel: "noopener noreferrer" } }, text("Enable Search Console API", "Search Console API inschakelen")));
             if (!gsc && result.status === "credentials") children.push(h("a", { attrs: { href: "https://app.ahrefs.com/account/api-keys", target: "_blank", rel: "noopener noreferrer" } }, text("Create a free API key", "Gratis API-sleutel aanmaken")));
             if (gsc && result.admin && result.status === "disconnected") children.push(button(text("Connect Google", "Google verbinden"), this.connect));
             if (gsc && result.admin && result.status === "property") children.push(
@@ -149,6 +157,7 @@ panel.plugin("timfeskens/seo", {
             );
             if (result.status === "error") children.push(button(text("Retry", "Opnieuw proberen"), () => this.load(provider)));
             if (gsc && result.admin && result.status === "error") children.push(button(text("Reconnect", "Opnieuw verbinden"), this.connect), button(text("Disconnect", "Loskoppelen"), this.disconnect));
+            if (gsc && result.admin && result.reason === "accessDenied") children.push(button(text("Change property", "Property wijzigen"), this.properties));
           } else if (gsc) {
             const rows = [...(result.rows || [])].sort((a, b) => this.metric === "position" ? a.position - b.position : b[this.metric] - a[this.metric]);
             const visible = this.all ? rows : rows.slice(0, 10);
@@ -173,7 +182,7 @@ panel.plugin("timfeskens/seo", {
           }
           children.push(h("a", { attrs: { href: gsc ? "https://search.google.com/search-console" : "https://app.ahrefs.com/site-explorer", target: "_blank", rel: "noopener noreferrer" } }, text("Open in ", "Open in ") + (gsc ? "Google Search Console" : "Ahrefs")));
           children.push(h("small", { class: "tf-seo-note" }, text("Results cached for 24 hours.", "Resultaten worden 24 uur bewaard.")));
-          return h("section", { class: "tf-seo-card", attrs: { "aria-label": gsc ? "Google Search Console" : "Ahrefs" } }, children);
+          return h("section", { class: "tf-seo-card", attrs: { "aria-label": gsc ? "Google Search Console" : "Ahrefs", "aria-busy": String(!result || !!this.busy[provider]) } }, children);
         })]);
       },
     },
@@ -187,7 +196,7 @@ panel.plugin("timfeskens/seo", {
     "timfeskens-seo-preview": {
       props: { label: String, preview: Object, endpoints: Object, ai: Boolean },
       data() {
-        return { current: this.preview, timer: null, request: 0, suggestion: null, busy: false, error: "", refreshing: false, pending: false, disposed: false };
+        return { current: this.preview || null, timer: null, request: 0, suggestion: null, busy: false, error: "", refreshing: false, pending: false, disposed: false };
       },
       computed: {
         // Read Kirby's reactive form store, not a component ancestor. The store
@@ -246,6 +255,12 @@ panel.plugin("timfeskens/seo", {
         const tags = meta.tags || {};
         const card = (title, children, platform = "") => h("section", { class: ["tf-seo-card", platform && `tf-seo-${platform}`], attrs: { "aria-label": title } }, [h("h3", title), ...children]);
         const image = (src, alt) => src ? h("img", { attrs: { src, alt: alt || "", loading: "lazy" } }) : null;
+        if (!this.current && !this.preview) return h("k-field", { props: { label: this.label } }, [
+          h("div", { class: "tf-seo-previews", attrs: { "aria-busy": String(this.refreshing) } }, ["Google", "Facebook", "Twitter / X"].map(title => card(title, [
+            this.error ? h("p", { attrs: { role: "status" } }, this.error) : h("div", { class: ["tf-seo-skeleton", title !== "Google" && "tf-seo-skeleton-social"], attrs: { role: "status", "aria-label": this.nl ? "Voorbeeld laden" : "Loading preview" } }, [h("span"), h("span"), h("span")]),
+          ]))),
+          this.error ? h("k-button", { props: { icon: "refresh", disabled: this.refreshing }, on: { click: this.refresh } }, this.nl ? "Opnieuw proberen" : "Retry") : null,
+        ]);
         let domain = meta.canonical || "";
         try { domain = new URL(domain).hostname; } catch (_) {}
         return h("k-field", { props: { label: this.label } }, [

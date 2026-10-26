@@ -31,7 +31,8 @@ const server = http.createServer((req, res) => {
     Vue.component('k-button', {props: ['disabled'], render(h) {return h('button', {attrs: {disabled: this.disabled}, on: {click: () => this.$emit('click')}}, this.$slots.default); }});
      window.calls = [];
      window.delays = {};
-     window.ahrefsResult = null;
+      window.ahrefsResult = null;
+      window.gscResult = null;
     const form = Vue.observable({changes: {metatitle: 'First', metadescription: 'Description'}});
     window.form = form;
     Vue.prototype.$panel = {translation: {code: 'nl'}, content: {version: () => form.changes}};
@@ -39,7 +40,7 @@ const server = http.createServer((req, res) => {
         window.calls.push({url, data});
         if (window.delays[url]) await new Promise(resolve => {window.delays[url].push(resolve);});
         if (url.endsWith('/data/ahrefs')) return window.ahrefsResult || {status: 'connected', metrics: {org_keywords: 7, org_traffic: 42}, date: '2026-10-25'};
-       if (url.endsWith('/data/searchConsole')) return {status: 'connected', property: 'sc-domain:example.test', startDate: '2026-09-26', endDate: '2026-10-23', rows: Array.from({length: 12}, (_, i) => ({query: 'cake <script>' + i, clicks: i, impressions: i * 10, ctr: .1, position: i + 1}))};
+        if (url.endsWith('/data/searchConsole')) return window.gscResult || {status: 'connected', property: 'sc-domain:example.test', startDate: '2026-09-26', endDate: '2026-10-23', rows: Array.from({length: 12}, (_, i) => ({query: 'cake <script>' + i, clicks: i, impressions: i * 10, ctr: .1, position: i + 1}))};
       if (url.endsWith('/suggest')) return {title: 'Suggestion', description: 'Review me'};
       const title = data.content.metatitle || 'Default';
        return {title, canonical: 'https://example.test/page', tags: {'og:title': title, 'og:site_name': 'Example', 'og:description': 'Facebook description', 'twitter:title': 'Twitter title', 'twitter:description': 'Twitter description', 'twitter:card': 'summary', description: data.content.metadescription, robots: 'noindex'}};
@@ -99,7 +100,14 @@ const server = http.createServer((req, res) => {
       window.ahrefsResult = {status: 'credentials', mode: 'free'};
       window.app.$children[1].load('ahrefs');
     });
-    await ahrefs.getByRole('link', {name: 'Gratis API-sleutel aanmaken'}).waitFor();
+     await ahrefs.getByRole('link', {name: 'Gratis API-sleutel aanmaken'}).waitFor();
+     await page.evaluate(() => {
+       window.gscResult = {status: 'error', reason: 'apiDisabled', admin: true};
+       window.app.$children[1].load('searchConsole');
+     });
+     await queries.getByText(/Opnieuw verbinden schakelt de API niet in/).waitFor();
+     assert.equal(await queries.getByRole('link', {name: 'Search Console API inschakelen'}).getAttribute('href'), 'https://console.cloud.google.com/apis/library/searchconsole.googleapis.com');
+     await previewLoading(page);
     assert.deepEqual(errors, [], 'No browser errors');
     await realPanel(browser);
     await realPanel(browser, true);
@@ -134,6 +142,24 @@ async function requestEfficiency(page) {
   await page.evaluate(url => {delete window.delays[url];}, endpoint);
 }
 
+async function previewLoading(page) {
+  const endpoint = 'pages/test/fields/seopreview/preview';
+  await page.evaluate(url => {
+    window.delays[url] = [];
+    const preview = window.app.$children[0];
+    preview.current = null;
+    preview.$props.preview = null;
+    preview.refresh();
+  }, endpoint);
+  assert.equal(await page.getByRole('status', {name: 'Voorbeeld laden'}).count(), 3, 'Each preview has an initial loading skeleton');
+  assert.equal(await page.locator('.tf-seo-previews[aria-busy="true"]').count(), 1, 'Preview loading state is accessible');
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  assert.equal(await page.locator('.tf-seo-skeleton span').first().evaluate(node => getComputedStyle(node).animationName), 'none', 'Skeleton respects reduced motion');
+  await page.evaluate(url => {window.delays[url].shift()(); delete window.delays[url];}, endpoint);
+  await page.getByRole('region', {name: 'Google', exact: true}).getByText('Latest response', {exact: true}).waitFor();
+  assert.equal(await page.getByRole('status', {name: 'Voorbeeld laden'}).count(), 0, 'Skeleton disappears after preview loads');
+}
+
 async function realPanel(browser, analytics = false) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'kirby-seo-panel-'));
   const socket = require('node:net').createServer();
@@ -154,9 +180,22 @@ async function realPanel(browser, analytics = false) {
       php.on('error', reject);
       php.on('exit', code => reject(new Error(`PHP exited ${code}: ${logs}`)));
     });
+    let releasePreview;
+    const previewGate = new Promise(resolve => {releasePreview = resolve;});
+    let previewRequests = 0;
+    await page.route('**/preview', async route => {
+      previewRequests++;
+      await previewGate;
+      await route.continue();
+    });
     await page.goto(`http://127.0.0.1:${port}/panel/site?tab=seo`);
+    await page.getByRole('status', {name: 'Voorbeeld laden'}).first().waitFor();
+    assert.equal(await page.getByRole('status', {name: 'Voorbeeld laden'}).count(), 3, 'Real Panel shows preview skeletons before metadata arrives');
+    assert.equal(await page.locator('.k-field-name-metatemplate [role="textbox"]').isEditable(), true, 'SEO form is usable while previews load');
+    releasePreview();
     await page.getByRole('region', {name: 'Google', exact: true}).waitFor();
     await socialPreviewImages(page);
+    assert.equal(previewRequests, 1, 'Initial Panel preview uses one deferred metadata request');
     if (analytics) {
       await page.getByRole('region', {name: 'Ahrefs', exact: true}).getByText('42', {exact: true}).waitFor();
       await page.getByRole('region', {name: 'Google Search Console', exact: true}).getByText(/Stel de inloggegevens/).waitFor();

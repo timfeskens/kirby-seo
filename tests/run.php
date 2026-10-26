@@ -149,9 +149,9 @@ try {
 $blueprint = Kirby\Cms\Blueprint::load('tabs/seo-page');
 check(!isset($blueprint['columns']['settings']['sections']['seoAdvanced']['fields']['canonicalUrl']), 'Canonical overrides are config-only, not Panel controls');
 $field = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $page]);
-check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
+check(!isset($field->toArray()['preview']), 'Page field defers metadata instead of blocking form serialization');
 $siteField = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
-check(is_array($siteField->toArray()['preview']), 'Site preview field serializes');
+check(!isset($siteField->toArray()['preview']), 'Site field defers metadata instead of blocking form serialization');
 $preview = Preview::metadata($page, ['metaTitle' => 'Unsaved title', 'metaDescription' => 'Unsaved description', 'ogImage' => []]);
 check($preview['title'] === 'Unsaved title - Example', 'Unsaved page title preview');
 check($preview['tags']['description'] === 'Unsaved description', 'Unsaved page description preview');
@@ -181,7 +181,7 @@ foreach (['site', 'page'] as $type) {
     $blueprint = new Kirby\Cms\Blueprint(['name' => 'seo-test-' . $type, 'model' => $model, 'tabs' => ['seo' => 'tabs/seo-' . $type]]);
     $fields = new Kirby\Form\Fields($blueprint->fields(), $model);
     check(count($fields->toArray()) > 5, 'SEO ' . $type . ' blueprint resolves all fields');
-    check(isset($fields->toProps()['seopreview']['preview']), 'SEO ' . $type . ' Panel props resolve');
+    check($fields->toProps()['seopreview']['type'] === 'timfeskens-seo-preview' && !isset($fields->toProps()['seopreview']['preview']), 'SEO ' . $type . ' deferred Panel props resolve');
     $props = $fields->toProps();
     check($blueprint->tabs()[0]['label'] === ($type === 'site' ? 'Global SEO settings' : 'SEO'), $type . ' SEO tab label distinguishes scope');
     foreach (['searchheading', 'socialheading', 'robotsheading'] as $heading) {
@@ -317,6 +317,9 @@ check((fileperms($tokenPath) & 0777) === 0600, 'Tokens stored with private permi
 check($kirby->session()->get('timfeskens.seo.oauth') === null, 'OAuth state consumed');
 check(SearchConsole::callback()->code() === 400, 'OAuth callback replay rejected');
 check(Analytics::data($page, 'searchConsole')['status'] === 'property', 'Property selection required, never picks unrelated property');
+$before = count($requests);
+Analytics::data($page, 'searchConsole');
+check(count($requests) === $before, 'Property list cached while awaiting selection');
 try { SearchConsole::selectProperty('sc-domain:unrelated.test'); check(false, 'Unknown property rejected'); }
 catch (RuntimeException) { check(true, 'Unknown property rejected'); }
 SearchConsole::selectProperty('sc-domain:example.test');
@@ -346,8 +349,23 @@ check(count($requests) === $before, 'Excluded pages do not contact provider');
 $tokens = json_decode(file_get_contents($tokenPath), true);
 $tokens['expires_at'] = 0;
 file_put_contents($tokenPath, json_encode($tokens));
+$kirby->cache('timfeskens.seo')->remove('analytics-' . hash('sha256', 'gsc-properties:' . $tokens['connection']));
 SearchConsole::selectProperty('sc-domain:example.test');
 check(json_decode(file_get_contents($tokenPath), true)['expires_at'] > time(), 'Expired access token refreshed');
+$failure = \TimFeskens\Seo\AnalyticsException::response(['error' => ['message' => 'sensitive provider message', 'errors' => [['reason' => 'accessNotConfigured']]]], 403);
+check($failure->reason === 'apiDisabled' && !str_contains($failure->getMessage(), 'sensitive'), 'Disabled API is classified without exposing provider messages');
+check(\TimFeskens\Seo\AnalyticsException::response(['error' => ['details' => [['reason' => 'SERVICE_DISABLED']]]], 403)->reason === 'apiDisabled', 'Modern Google disabled-service error is classified');
+check(\TimFeskens\Seo\AnalyticsException::response(['error' => 'invalid_grant'], 400)->reason === 'reconnect', 'Revoked OAuth grant requires reconnection');
+check(\TimFeskens\Seo\AnalyticsException::response([], 403)->reason === 'accessDenied', 'Permission errors are distinguished from disabled API');
+check(\TimFeskens\Seo\AnalyticsException::response([], 429)->reason === 'quota', 'Quota errors are actionable');
+$kirby->cache('timfeskens.seo')->flush();
+$kirby->session()->commit();
+[$kirby, $page] = fixture(array_replace($options, ['timfeskens.seo.analyticsTransport' => static function (): array {
+    throw \TimFeskens\Seo\AnalyticsException::response(['error' => ['errors' => [['reason' => 'accessNotConfigured']]]], 403);
+}]));
+$kirby->impersonate('kirby');
+$failureResult = Analytics::data($page, 'searchConsole');
+check($failureResult === ['status' => 'error', 'reason' => 'apiDisabled', 'admin' => true], 'Panel receives only safe error code and recovery permissions');
 SearchConsole::disconnect();
 check(!is_file($tokenPath), 'Disconnect deletes private tokens');
 $kirby->session()->commit();

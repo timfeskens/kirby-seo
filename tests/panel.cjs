@@ -107,6 +107,7 @@ async function realPanel(browser, analytics = false) {
     });
     await page.goto(`http://127.0.0.1:${port}/panel/site?tab=seo`);
     await page.getByRole('region', {name: 'Google', exact: true}).waitFor();
+    await socialPreviewImages(page);
     if (analytics) {
       await page.getByRole('region', {name: 'Ahrefs', exact: true}).getByText('42', {exact: true}).waitFor();
       await page.getByRole('region', {name: 'Google Search Console', exact: true}).getByText(/Stel de inloggegevens/).waitFor();
@@ -154,6 +155,7 @@ async function realPanel(browser, analytics = false) {
     await page.locator('input[name="ogtemplate"]').fill('{{ title }} social');
     await page.getByRole('region', {name: 'Facebook', exact: true}).getByText('Home social', {exact: true}).waitFor();
     await page.getByRole('region', {name: 'Twitter / X', exact: true}).getByText('Home social', {exact: true}).waitFor();
+    await socialPreviewImages(page);
     const siteNameField = page.locator('.k-field-name-ogsitename');
     await siteNameField.getByRole('textbox').fill('');
     await siteNameField.getByRole('button', {name: 'Invoegen: Websitetitel', exact: true}).click();
@@ -169,6 +171,7 @@ async function realPanel(browser, analytics = false) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Real Panel mobile overflow');
     await page.goto(`http://127.0.0.1:${port}/panel/pages/test?tab=seo`);
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('Test page - Example', {exact: true}).waitFor();
+    await socialPreviewImages(page);
     assert.match(await page.locator('select[name="robotsindex"] option[value="default"]').innerText(), /Overnemen/, 'Page robots retain inheritance');
     assert.equal(await page.getByRole('heading', {name: 'Sociale profielen', exact: true}).count(), 0, 'Profiles only on site');
     await page.getByRole('heading', {name: 'Geavanceerd en overerving', exact: true}).waitFor();
@@ -273,4 +276,17 @@ async function responsiveLayout(page, model) {
     }
   }
   await page.setViewportSize({width: 1440, height: 1000});
+}
+
+async function socialPreviewImages(page) {
+  for (const platform of ['Facebook', 'Twitter / X']) {
+    const image = page.getByRole('region', {name: platform, exact: true}).locator('img');
+    await image.waitFor();
+    await image.scrollIntoViewIfNeeded();
+    await page.waitForFunction(platform => {
+      const image = document.querySelector(`section[aria-label="${platform}"] img`);
+      return image?.complete && image.naturalWidth > 0;
+    }, platform);
+    assert.equal(await image.count(), 1, `${platform} has a loaded social image`);
+  }
 }

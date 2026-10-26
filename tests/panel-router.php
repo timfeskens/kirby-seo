@@ -12,6 +12,13 @@ if (!$root || !in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], tru
     exit;
 }
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if (str_starts_with($path, '/media/site/')) {
+    $file = realpath($root . $path);
+    if ($file && str_starts_with($file, realpath($root . '/media') . '/') && is_file($file)) {
+        echo Kirby\Http\Response::file($file);
+        return;
+    }
+}
 if (str_starts_with($path, '/kirby/') || preg_match('~^/media/panel/[^/]+/(.*)$~', $path, $matches)) {
     $file = realpath(dirname(__DIR__) . (isset($matches[1]) ? '/kirby/panel/dist/' . $matches[1] : $path));
     $assets = realpath(dirname(__DIR__) . '/kirby/panel/dist') . '/';
@@ -24,6 +31,12 @@ if (str_starts_with($path, '/kirby/') || preg_match('~^/media/panel/[^/]+/(.*)$~
     }
     http_response_code(404);
     return;
+}
+Kirby\Filesystem\Dir::make($root . '/content');
+if (!is_file($root . '/content/social.png')) {
+    $image = imagecreatetruecolor(640, 480);
+    imagefill($image, 0, 0, imagecolorallocate($image, 75, 120, 190));
+    imagepng($image, $root . '/content/social.png');
 }
 $kirby = new Kirby\Cms\App([
     'roots' => ['index' => $root],
@@ -40,7 +53,7 @@ $kirby = new Kirby\Cms\App([
         'pages/default' => ['title' => 'Test', 'tabs' => ['seo' => 'tabs/seo-page']],
     ],
     'users' => [['id' => 'seo-test', 'email' => 'seo@example.test', 'role' => 'admin', 'language' => 'nl']],
-    'site' => ['content' => ['title' => 'Example'], 'children' => [
+    'site' => ['content' => ['title' => 'Example', 'ogImage' => '- social.png'], 'files' => [['filename' => 'social.png']], 'children' => [
         ['slug' => 'home', 'content' => ['title' => 'Home']],
         ['slug' => 'error', 'content' => ['title' => 'Error']],
         ['slug' => 'test', 'num' => 1, 'content' => ['title' => 'Test page']],

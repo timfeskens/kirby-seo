@@ -242,6 +242,17 @@ $imagePage = $page->clone(['files' => [['filename' => 'social.png', 'content' =>
 $imageMeta = Seo::metadata($imagePage);
 check($imageMeta['tags']['og:image:width'] === '640' && $imageMeta['tags']['og:image:height'] === '480', 'Disabled cropping retains original image dimensions');
 check(Preview::metadata($imagePage, ['cropOgImage' => 'true'])['tags']['og:image:width'] === '1200', 'Unsaved crop setting updates preview');
+$picker = $imagePage->files()->first()->panel()->pickerData(['model' => $imagePage]);
+$kirby->site()->index()->set($imagePage->id(), $imagePage);
+check(Preview::metadata($imagePage, ['ogImage' => [$picker]])['tags']['og:image'] === $imageMeta['tags']['og:image'], 'Native Panel picker UUID resolves to the selected image');
+$pickerWithoutUuid = $picker;
+unset($pickerWithoutUuid['uuid']);
+check(Preview::metadata($imagePage, ['ogImage' => [$pickerWithoutUuid]])['tags']['og:image'] === $imageMeta['tags']['og:image'], 'Panel picker object resolves by file id instead of encoding an object as a stored reference');
+check(Preview::metadata($imagePage, ['ogImage' => ['social.png']])['tags']['og:image'] === $imageMeta['tags']['og:image'], 'String reference arrays still resolve');
+check(Preview::metadata($imagePage, ['ogImage' => '- social.png'])['tags']['og:image'] === $imageMeta['tags']['og:image'], 'Migrated stored YAML image references still resolve');
+check(Preview::metadata($imagePage, ['ogImage' => [['url' => 'https://untrusted.example/image.png']]])['tags']['og:image'] === null, 'Preview does not trust client-supplied image URLs');
+check(Preview::metadata($imagePage, ['ogImage' => []])['tags']['og:image'] === null, 'Clearing image selection removes the page image when no fallback exists');
+check(Seo::metadata($imagePage)['tags']['og:image'] === $imageMeta['tags']['og:image'], 'Image preview never changes saved content');
 unlink($imagePath);
 
 // Real OAuth state/PKCE, private token storage, refresh, queries and quota-safe caching.

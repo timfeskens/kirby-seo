@@ -43,6 +43,19 @@ final class Preview
     {
         $allowed = ['title', 'metaTitle', 'metaTemplate', 'metaDescription', 'ogTemplate', 'ogDescription', 'ogSiteName', 'useTitleTemplate', 'useOgTemplate', 'twitterCardType', 'twitterAuthor', 'canonicalUrl', 'ogImage', 'cropOgImage', 'robotsIndex', 'robotsFollow', 'robotsArchive', 'robotsImageindex', 'robotsSnippet', 'socialMediaAccounts'];
         $data = array_intersect_key(array_change_key_case($data), array_flip(array_map('strtolower', $allowed)));
+        if (isset($data['ogimage']) && is_array($data['ogimage'])) {
+            // Kirby's files field sends picker objects, not the string references
+            // consumed by Field::toFile(). Match its uuid/id storage convention;
+            // never trust client-supplied image URLs or thumbnail properties.
+            $references = [];
+            foreach ($data['ogimage'] as $file) {
+                $reference = is_array($file) ? ($file['uuid'] ?? $file['id'] ?? null) : $file;
+                if (is_string($reference) && $reference !== '') {
+                    $references[] = $reference;
+                }
+            }
+            $data['ogimage'] = $references;
+        }
         foreach ($data as &$value) {
             if (is_array($value)) {
                 $value = Data::encode($value, 'yaml');

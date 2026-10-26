@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.11 — 2026-10-26
+
+- Fix social images disappearing from live previews: normalize Kirby file-picker
+  objects to UUID/id reference strings before resolving unsaved metadata.
+- Preserve existing stored references and image inheritance, and ignore
+  client-supplied image URLs. Test native picker UUIDs, legacy references,
+  clearing selections and loaded Facebook/Twitter images in the real Panel.
+
 ## 0.1.10 — 2026-10-26
 
 - Use the same variable-chip template editor for social site names and social

@@ -8,6 +8,8 @@ use TimFeskens\Seo\Endpoints;
 use TimFeskens\Seo\Integrations;
 use TimFeskens\Seo\Preview;
 use TimFeskens\Seo\Seo;
+use TimFeskens\Seo\Analytics;
+use TimFeskens\Seo\SearchConsole;
 
 // Manual installation is supported as well as Composer.
 spl_autoload_register(static function (string $class): void {
@@ -33,6 +35,8 @@ Kirby::plugin('timfeskens/seo', [
         'llms' => ['enabled' => false, 'include' => null, 'markdown' => null],
         'ai' => ['enabled' => false, 'source' => null, 'provider' => null],
         'indexnow' => ['enabled' => false, 'key' => null],
+        'searchConsole' => ['enabled' => false, 'credentials' => null, 'tokenPath' => null, 'property' => null],
+        'ahrefs' => ['enabled' => false, 'apiKey' => null],
     ],
     'snippets' => ['timfeskens-seo/meta' => __DIR__ . '/snippets/meta.php'],
     'blueprints' => [
@@ -51,6 +55,37 @@ Kirby::plugin('timfeskens/seo', [
         'seo' => function (): array { return Seo::metadata($this); },
     ],
     'fields' => [
+        'timfeskens-seo-template' => [
+            'extends' => 'text',
+            'save' => function ($value) { return Preview::stored($this->model(), $this->name(), $value); },
+            'computed' => [
+                'default' => function () { return Preview::default($this->model(), $this->name()); },
+                'placeholder' => function () { return Preview::default($this->model(), $this->name()); },
+                'value' => function () { return $this->value !== '' && $this->value !== null ? $this->value : Preview::default($this->model(), $this->name()); },
+            ],
+        ],
+        'timfeskens-seo-analytics' => [
+            'save' => false,
+            'computed' => [
+                'providers' => fn (): array => Analytics::providers(),
+            ],
+            'api' => function (): array {
+                $model = $this->model();
+                return [
+                    ['pattern' => 'data/(:alpha)', 'method' => 'POST', 'action' => fn (string $provider): array => Analytics::data($model, $provider)],
+                    ['pattern' => 'connect', 'method' => 'POST', 'action' => fn (): array => ['url' => SearchConsole::connect()]],
+                    ['pattern' => 'properties', 'method' => 'POST', 'action' => fn (): array => SearchConsole::availableProperties()],
+                    ['pattern' => 'property', 'method' => 'POST', 'action' => function (): array {
+                        SearchConsole::selectProperty((string)kirby()->request()->get('property', ''));
+                        return ['ok' => true];
+                    }],
+                    ['pattern' => 'disconnect', 'method' => 'POST', 'action' => function (): array {
+                        SearchConsole::disconnect();
+                        return ['ok' => true];
+                    }],
+                ];
+            },
+        ],
         'timfeskens-seo-text' => [
             'extends' => 'text',
             'save' => function ($value) { return Preview::stored($this->model(), $this->name(), $value); },
@@ -125,6 +160,9 @@ Kirby::plugin('timfeskens/seo', [
     ],
     'routes' => function (): array {
         $routes = [];
+        if (Seo::option('searchConsole.enabled', false) === true) {
+            $routes[] = ['pattern' => '__seo/gsc/callback', 'method' => 'GET', 'action' => fn () => SearchConsole::callback()];
+        }
         if (Seo::option('sitemap', true)) {
             $routes[] = ['pattern' => 'sitemap.xml', 'action' => fn () => Endpoints::sitemap()];
             $routes[] = ['pattern' => 'sitemap.xsl', 'action' => fn () => Endpoints::sitemapStylesheet()];

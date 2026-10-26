@@ -9,10 +9,12 @@ fields:
     label:
       en: Social title pattern
       nl: Titelpatroon voor sociale media
-    type: timfeskens-seo-text
+    type: timfeskens-seo-template
     default: '{{ title }}'
     placeholder: '{{ title }}'
-    help: '{{ title }}'
+    help:
+      en: Insert title variables or type text. The stored pattern stays compatible with existing content.
+      nl: Voeg titelvariabelen toe of typ tekst. Het opgeslagen patroon blijft compatibel met bestaande inhoud.
   ogDescription:
     label:
       en: Social description
@@ -34,8 +36,24 @@ fields:
     multiple: false
     query: site.files.add(site.index.files).filterBy('type', 'image')
     help:
-      en: Cropped to 1200 × 630 pixels. Leave enough space around your subject.
-      nl: Wordt bijgesneden naar 1200 × 630 pixels. Laat genoeg ruimte rond het onderwerp.
+      en: By default, cropped to 1200 × 630 pixels. Leave enough space around your subject.
+      nl: Wordt standaard bijgesneden naar 1200 × 630 pixels. Laat genoeg ruimte rond het onderwerp.
+  cropOgImage:
+    label:
+      en: Crop social image
+      nl: Sociale afbeelding bijsnijden
+    type: timfeskens-seo-select
+    default: default
+    options:
+      default:
+        en: Inherit / automatic (crop by default)
+        nl: Overnemen / automatisch (standaard bijsnijden)
+      'true':
+        en: Crop to 1200 × 630
+        nl: Bijsnijden naar 1200 × 630
+      'false':
+        en: Keep original image
+        nl: Oorspronkelijke afbeelding behouden
   twitterCardType:
     label:
       en: Twitter/X card

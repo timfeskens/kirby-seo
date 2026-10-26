@@ -15,6 +15,8 @@ own license for public use.
 - Language-aware URLs, translated slugs, `hreflang` and sitemap alternates
 - WebSite/WebPage/breadcrumb JSON-LD and a site-specific schema extension callback
 - Optional AI suggestions, queued IndexNow updates, and allowlisted LLM endpoints
+- Visual title-template editor with variable chips and a plain-code view
+- Optional Google Search Console queries and Ahrefs metrics in the Panel
 
 Previews are guidance, not ranking scores or guarantees.
 Google and social platforms can choose different titles, snippets and images.
@@ -119,12 +121,15 @@ left empty; page titles then come from the page itself.
 Supported existing field names include `metaTitle`, `metaTemplate`,
 `metaDescription`, `ogTemplate`, `ogDescription`, `ogSiteName`, `ogImage`,
 `useTitleTemplate`, `useOgTemplate`, `twitterCardType`, `twitterAuthor`,
-`socialMediaAccounts`, `metaInherit`, and `robots*`. This permits migrating existing
+`socialMediaAccounts`, `cropOgImage`, `metaInherit`, and `robots*`. This permits migrating existing
 content without renaming fields. This is not a drop-in implementation of another
 plugin's PHP API, custom fields, or commercial features.
 
 Title patterns support **only** `{{ title }}`, `{{ page.title }}` and
 `{{ site.title }}`; they are not arbitrary query/template execution.
+The visual editor inserts these as labeled chips; separators and other text remain
+editable. **Code** switches to the original plain string, so existing content stays
+portable. Tokens without surrounding whitespace (e.g. `{{title}}`) also resolve.
 The Panel fills empty title patterns with `{{ title }} - {{ site.title }}` (Google)
 and `{{ title }}` (social), and the social site name with `{{ site.title }}`.
 Placeholders show the same literal patterns, not prematurely resolved titles.
@@ -133,6 +138,98 @@ selectors start at automatic and both page pattern toggles start enabled.
 Existing overrides are preserved. Unchanged inherited page text is not pinned as
 a page override when saving. Fields without a meaningful default (images, profile
 URLs, canonical overrides and authors) remain empty rather than inventing content.
+
+### Migrating from tobimori/kirby-seo
+
+Shared content keys are deliberately identical, including `metaTitle`,
+`metaTemplate`, `useTitleTemplate`, `metaDescription`, `ogTemplate`, `useOgTemplate`,
+`ogDescription`, `ogSiteName`, `ogImage`, `cropOgImage`, `metaInherit`, and all
+`robots*` settings. Kirby treats field names case-insensitively. Social profiles
+retain the `socialMediaAccounts` object and its `twitter`, `facebook`, `instagram`,
+`youtube`, `linkedin`, `bluesky`, and `mastodon` keys. Cropping defaults to enabled;
+an existing `cropOgImage: false` preserves the original image and its dimensions.
+
+Back up content and config, remove the old plugin, then replace its blueprint tabs
+and head snippet with the ones above. Keep existing content files and file UUIDs.
+Settings under `tobimori.seo` must be deliberately translated to `timfeskens.seo`;
+configuration namespaces and PHP APIs are **not** drop-in compatible. Our extra
+`canonicalUrl`, `twitterCardType`, and `twitterAuthor` keys remain supported; they
+do not have equivalent stock fields in the current upstream blueprints. Custom KQL
+title expressions are intentionally not executed. OAuth connections are not
+automatically imported: reconnect with the private token storage described below.
+No content migration or bulk rewrite runs automatically.
+
+## Optional Google Search Console
+
+Disabled by default. When enabled, the SEO sidebar on both Site and page views
+shows search queries with clicks, impressions, CTR and average position. The top
+10 are shown first; sort by any metric or show all returned rows (up to Google's
+25,000-row response limit; this is not an exhaustive export). Page queries filter
+by **exact canonical URL**, while Site queries cover the selected property. Data
+covers 28 days ending three days ago to avoid incomplete recent data and is cached
+for 24 hours. Empty reports and provider failures do not affect public metadata.
+
+1. Enable the **Google Search Console API** in your Google Cloud project.
+2. Configure the OAuth consent screen and a **Web application** OAuth client.
+   Register `https://example.com/__seo/gsc/callback` as an exact redirect URI
+   (including any installation subdirectory). Local development needs its own URI.
+3. Configure credentials through your environment and a writable token file path
+   in an **existing private directory outside the document root and Git**:
+
+```php
+'searchConsole' => [
+    'enabled' => true,
+    'credentials' => ['web' => [
+        'client_id' => getenv('GOOGLE_SEARCH_CONSOLE_CLIENT_ID'),
+        'client_secret' => getenv('GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET'),
+    ]],
+    'tokenPath' => getenv('GOOGLE_SEARCH_CONSOLE_TOKEN_PATH'),
+],
+```
+
+Downloaded Google `web` credentials arrays are also accepted. Do not commit the
+downloaded JSON. Configure Kirby's trusted `url`; the callback is based on the
+current site URL, not `canonicalBase`. For Docker, persist/mount private token
+storage outside the web root; the plugin does not create deployment volumes.
+
+4. As a Panel administrator, click **Connect Google**, grant read-only access,
+   then choose an accessible Search Console property. Other editors with update
+   permission can read reports, but cannot change the shared connection. Change
+   property, reconnect, or disconnect in the sidebar. Optional server config
+   `searchConsole.property` pins a property and takes precedence over Panel selection.
+
+OAuth uses one-time, user-bound, expiring state and PKCE. Refresh tokens stay on the
+server in an atomically written `0600` file. Credentials/tokens are never Panel
+props or content fields. Disconnect deletes the local connection; to revoke the
+Google grant itself, remove it in your Google account's third-party access settings.
+Google OAuth apps in external **Testing** mode can have short-lived refresh tokens;
+configure the consent application's publishing status appropriately.
+
+## Optional Ahrefs
+
+Disabled independently by default. Enable with an Ahrefs API v3 key whose account
+has access and quota for the Site Explorer metrics endpoint:
+
+```php
+'ahrefs' => [
+    'enabled' => true,
+    'apiKey' => getenv('AHREFS_API_KEY'),
+],
+```
+
+The Panel shows organic keywords, top-three keywords, estimated monthly organic
+traffic and paid keywords. Ahrefs estimates are **not** measured visitor analytics.
+Page scope is the exact canonical URL; Site scope is its canonical homepage prefix
+(preserving subdirectory installations). Results use yesterday's data and are
+cached for 24 hours to avoid repeated API-unit charges. API availability and cost
+depend on your Ahrefs subscription; enabling this integration authorizes these
+requests. Keys remain server-side; no Ahrefs JavaScript/tracking is injected.
+
+Both integrations make no requests and show no UI when disabled. They only run on
+authenticated Panel requests, never during public page rendering. Non-indexable
+pages are excluded from per-page requests. Site-level reports still cover the
+selected external property/site. No credentials are bundled and neither integration
+is automatically connected by installation.
 
 ## Automatic XML sitemap
 
@@ -299,6 +396,12 @@ All options below live under `timfeskens.seo`:
 | `indexnow.key` | `null` | Verification key |
 | `llms.enabled` | `false` | Enable explicit public exports |
 | `llms.include` / `llms.markdown` | `null` | Allowlist and Markdown renderer |
+| `searchConsole.enabled` | `false` | Read-only search performance in Panel |
+| `searchConsole.credentials` | `null` | Server-side Google OAuth credentials |
+| `searchConsole.tokenPath` | `null` | Explicit private persistent token file |
+| `searchConsole.property` | `null` | Optional property pin instead of Panel selection |
+| `ahrefs.enabled` | `false` | Ahrefs Site Explorer metrics in Panel |
+| `ahrefs.apiKey` | `null` | Server-side Ahrefs API v3 key |
 
 ## Development
 

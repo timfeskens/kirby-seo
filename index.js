@@ -1,6 +1,176 @@
 /* Native Kirby/Vue components: no bundler or runtime dependency required. */
 panel.plugin("timfeskens/seo", {
   fields: {
+    "timfeskens-seo-template": {
+      props: { value: String, label: String, name: String, id: String, help: String, placeholder: String, disabled: Boolean, required: Boolean },
+      data() { return { code: false, selection: null }; },
+      computed: {
+        nl() { return this.$panel.translation?.code?.startsWith("nl"); },
+        variables() { return [
+          { token: "title", label: this.nl ? "Titel" : "Title" },
+          { token: "page.title", label: this.nl ? "Paginatitel" : "Page title" },
+          { token: "site.title", label: this.nl ? "Websitetitel" : "Site title" },
+        ]; },
+      },
+      watch: { value() { if (!this.code && this.read() !== (this.value || "")) this.paint(); } },
+      mounted() { this.paint(); },
+      methods: {
+        read() {
+          const read = node => node.nodeType === Node.TEXT_NODE ? node.textContent : node.dataset?.token ? `{{ ${node.dataset.token} }}` : Array.from(node.childNodes).map(read).join("");
+          return this.$refs.editor ? read(this.$refs.editor).replace(/\u00a0/g, " ") : this.value || "";
+        },
+        paint() {
+          const editor = this.$refs.editor;
+          if (!editor) return;
+          editor.replaceChildren();
+          const pattern = this.value || "";
+          const regex = /\{\{\s*(title|page\.title|site\.title)\s*\}\}/g;
+          let offset = 0;
+          for (const match of pattern.matchAll(regex)) {
+            editor.append(document.createTextNode(pattern.slice(offset, match.index)));
+            editor.append(this.chip(match[1]));
+            offset = match.index + match[0].length;
+          }
+          editor.append(document.createTextNode(pattern.slice(offset)));
+        },
+        chip(token) {
+          const node = document.createElement("span");
+          node.className = "tf-seo-token";
+          node.dataset.token = token;
+          node.contentEditable = "false";
+          node.textContent = this.variables.find(item => item.token === token)?.label || token;
+          node.title = `{{ ${token} }}`;
+          return node;
+        },
+        remember() {
+          const selection = window.getSelection();
+          if (selection.rangeCount && this.$refs.editor?.contains(selection.anchorNode) && this.$refs.editor?.contains(selection.focusNode)) this.selection = selection.getRangeAt(0).cloneRange();
+        },
+        insert(token) {
+          if (this.disabled) return;
+          const editor = this.$refs.editor;
+          editor.focus();
+          const range = this.selection && editor.contains(this.selection.commonAncestorContainer) ? this.selection : document.createRange();
+          if (!this.selection || !editor.contains(range.commonAncestorContainer)) { range.selectNodeContents(editor); range.collapse(false); }
+          range.deleteContents();
+          const node = this.chip(token);
+          range.insertNode(node);
+          range.setStartAfter(node);
+          range.collapse(true);
+          const selection = window.getSelection();
+          selection.removeAllRanges(); selection.addRange(range);
+          this.remember();
+          this.$emit("input", this.read());
+        },
+        paste(event) {
+          event.preventDefault();
+          const text = event.clipboardData.getData("text/plain").replace(/\r?\n/g, " ");
+          const selection = window.getSelection();
+          if (!selection.rangeCount) return;
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          const node = document.createTextNode(text); range.insertNode(node);
+          range.setStartAfter(node); range.collapse(true); selection.removeAllRanges(); selection.addRange(range);
+          this.$emit("input", this.read());
+        },
+        toggle() { this.code = !this.code; this.selection = null; this.$nextTick(() => this.code ? this.$refs.code?.focus() : this.paint()); },
+      },
+      render(h) {
+        return h("k-field", { props: { label: this.label, name: this.name, help: this.help, required: this.required, input: this.id } }, [
+          h("div", { class: "tf-seo-template" }, [
+            h("div", { class: "tf-seo-template-toolbar" }, [
+              ...(!this.code ? this.variables.map(item => h("button", { attrs: { type: "button", disabled: this.disabled, title: `{{ ${item.token} }}`, "aria-label": `${this.nl ? "Invoegen" : "Insert"}: ${item.label}` }, on: { mousedown: event => event.preventDefault(), click: () => this.insert(item.token) } }, item.label)) : []),
+              h("button", { attrs: { type: "button", "aria-pressed": this.code }, on: { click: this.toggle } }, this.code ? (this.nl ? "Visueel" : "Visual") : "Code"),
+            ]),
+            this.code ? h("input", { ref: "code", class: "tf-seo-template-code", attrs: { id: this.id, name: this.name, disabled: this.disabled, placeholder: this.placeholder, type: "text" }, domProps: { value: this.value }, on: { input: event => this.$emit("input", event.target.value) } }) : h("div", {
+              ref: "editor", class: "tf-seo-template-editor", attrs: { id: this.id, role: "textbox", "aria-label": this.label, "aria-multiline": "false", contenteditable: this.disabled ? "false" : "true" },
+              on: { input: () => { this.remember(); this.$emit("input", this.read()); }, keyup: this.remember, mouseup: this.remember, blur: this.remember, paste: this.paste, keydown: event => { if (event.key === "Enter") event.preventDefault(); } },
+            }),
+            h("small", { class: "tf-seo-template-count" }, String((this.value || "").length)),
+          ]),
+        ]);
+      },
+    },
+    "timfeskens-seo-analytics": {
+      props: { providers: { type: Array, default: () => [] }, endpoints: Object },
+      data() { return { results: {}, busy: {}, metric: "clicks", all: false, property: "" }; },
+      computed: { nl() { return this.$panel.translation?.code?.startsWith("nl"); } },
+      mounted() { this.providers.forEach(provider => this.load(provider)); },
+      methods: {
+        async load(provider) {
+          this.$set(this.busy, provider, true);
+          try { this.$set(this.results, provider, await this.$api.post(`${this.endpoints.field}/data/${provider}`)); }
+          catch (_) { this.$set(this.results, provider, { status: "error" }); }
+          finally { this.$set(this.busy, provider, false); }
+        },
+        async connect() {
+          try { const response = await this.$api.post(`${this.endpoints.field}/connect`); window.location.assign(response.url); }
+          catch (_) { this.$set(this.results, "searchConsole", { status: "error" }); }
+        },
+        async select() {
+          try { await this.$api.post(`${this.endpoints.field}/property`, { property: this.property }); await this.load("searchConsole"); }
+          catch (_) { this.$set(this.results, "searchConsole", { status: "error" }); }
+        },
+        async properties() {
+          try { this.$set(this.results, "searchConsole", await this.$api.post(`${this.endpoints.field}/properties`)); }
+          catch (_) { this.$set(this.results, "searchConsole", { status: "error" }); }
+        },
+        async disconnect() {
+          if (!window.confirm(this.nl ? "Google Search Console loskoppelen?" : "Disconnect Google Search Console?")) return;
+          try { await this.$api.post(`${this.endpoints.field}/disconnect`); await this.load("searchConsole"); }
+          catch (_) { this.$set(this.results, "searchConsole", { status: "error" }); }
+        },
+        format(value, metric) { return new Intl.NumberFormat(this.nl ? "nl-NL" : "en", metric === "ctr" ? { style: "percent", maximumFractionDigits: 1 } : { maximumFractionDigits: metric === "position" ? 1 : 0 }).format(value); },
+      },
+      render(h) {
+        if (!this.providers.length) return null;
+        const text = (en, nl) => this.nl ? nl : en;
+        const button = (label, click, disabled = false) => h("button", { class: "tf-seo-analytics-button", attrs: { type: "button", disabled }, on: { click } }, label);
+        const metrics = { clicks: text("Clicks", "Klikken"), impressions: text("Impressions", "Vertoningen"), ctr: "CTR", position: text("Position", "Positie") };
+        const messages = {
+          credentials: text("Configure server-side credentials to use this integration.", "Stel de inloggegevens in de serverconfiguratie in om deze koppeling te gebruiken."),
+          disconnected: text("Connect your Google account with read-only access.", "Verbind je Google-account met alleen-lezen toegang."),
+          property: text("Select a Search Console property. Only an administrator can change the connection.", "Kies een Search Console-property. Alleen een beheerder kan de koppeling wijzigen."),
+          error: text("Could not load data. Check credentials, access, private token storage and API quota.", "Gegevens konden niet worden geladen. Controleer de inloggegevens, toegang, privéopslag voor tokens en het API-quotum."),
+          excluded: text("Analytics are not requested for pages excluded from indexing.", "Voor pagina’s die niet geïndexeerd mogen worden, worden geen gegevens opgevraagd."),
+        };
+        return h("div", { class: "tf-seo-analytics" }, this.providers.map(provider => {
+          const result = this.results[provider];
+          const gsc = provider === "searchConsole";
+          const children = [h("h3", gsc ? "Google Search Console" : "Ahrefs")];
+          if (!result || this.busy[provider]) children.push(h("p", text("Loading…", "Laden…")));
+          else if (result.status !== "connected") {
+            children.push(h("p", { attrs: { role: "status" } }, messages[result.status] || messages.error));
+            if (gsc && result.admin && result.status === "disconnected") children.push(button(text("Connect Google", "Google verbinden"), this.connect));
+            if (gsc && result.admin && result.status === "property") children.push(
+              h("select", { attrs: { "aria-label": "Search Console property" }, domProps: { value: this.property }, on: { change: event => { this.property = event.target.value; } } }, [h("option", { attrs: { value: "" } }, text("Select property", "Kies een property")), ...(result.properties || []).map(property => h("option", { domProps: { value: property } }, property))]),
+              button(text("Use property", "Property gebruiken"), this.select, !this.property),
+            );
+            if (result.status === "error") children.push(button(text("Retry", "Opnieuw proberen"), () => this.load(provider)));
+            if (gsc && result.admin && result.status === "error") children.push(button(text("Reconnect", "Opnieuw verbinden"), this.connect), button(text("Disconnect", "Loskoppelen"), this.disconnect));
+          } else if (gsc) {
+            const rows = [...(result.rows || [])].sort((a, b) => this.metric === "position" ? a.position - b.position : b[this.metric] - a[this.metric]);
+            const visible = this.all ? rows : rows.slice(0, 10);
+            children.push(h("p", { class: "tf-seo-note" }, `${result.startDate} – ${result.endDate} · ${result.property}`));
+            children.push(h("select", { attrs: { "aria-label": text("Sort queries", "Zoekopdrachten sorteren") }, domProps: { value: this.metric }, on: { change: event => { this.metric = event.target.value; } } }, Object.entries(metrics).map(([value, label]) => h("option", { domProps: { value } }, label))));
+            if (!rows.length) children.push(h("p", text("No search queries in this period.", "Geen zoekopdrachten in deze periode.")));
+            else children.push(h("div", { class: "tf-seo-table-scroll", attrs: { tabindex: "0" } }, [h("table", [
+              h("thead", [h("tr", [h("th", text("Query", "Zoekopdracht")), ...Object.values(metrics).map(label => h("th", label))])]),
+              h("tbody", visible.map(row => h("tr", [h("td", row.query), ...Object.keys(metrics).map(metric => h("td", this.format(row[metric], metric)))]))),
+            ])]));
+            if (rows.length > 10) children.push(button(this.all ? text("Show top 10", "Toon top 10") : text("Show all", "Alles tonen"), () => { this.all = !this.all; }));
+            if (result.admin) children.push(button(text("Change property", "Property wijzigen"), this.properties), button(text("Reconnect", "Opnieuw verbinden"), this.connect), button(text("Disconnect", "Loskoppelen"), this.disconnect));
+          } else {
+            const labels = { org_keywords: text("Organic keywords", "Organische zoekwoorden"), org_keywords_1_3: text("Top 3 keywords", "Zoekwoorden in top 3"), org_traffic: text("Estimated monthly organic traffic", "Geschat maandelijks organisch verkeer"), paid_keywords: text("Paid keywords", "Betaalde zoekwoorden") };
+            children.push(h("dl", Object.entries(result.metrics || {}).flatMap(([key, value]) => [h("dt", labels[key] || key), h("dd", value === null ? "—" : this.format(value, key))])));
+            children.push(h("p", { class: "tf-seo-note" }, `${result.date} · ${text("Ahrefs estimates, not measured visits", "Schattingen van Ahrefs, geen gemeten bezoeken")}`));
+          }
+          children.push(h("a", { attrs: { href: gsc ? "https://search.google.com/search-console" : "https://app.ahrefs.com/site-explorer", target: "_blank", rel: "noopener noreferrer" } }, text("Open in ", "Open in ") + (gsc ? "Google Search Console" : "Ahrefs")));
+          children.push(h("small", { class: "tf-seo-note" }, text("Results cached for 24 hours.", "Resultaten worden 24 uur bewaard.")));
+          return h("section", { class: "tf-seo-card", attrs: { "aria-label": gsc ? "Google Search Console" : "Ahrefs" } }, children);
+        }));
+      },
+    },
     "timfeskens-seo-text": { extends: "k-text-field" },
     "timfeskens-seo-textarea": { extends: "k-textarea-field" },
     "timfeskens-seo-select": {

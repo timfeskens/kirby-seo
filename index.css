@@ -15,3 +15,24 @@
 .tf-seo-twitter-summary { display: flex; gap: .75rem; align-items: center; }
 .tf-seo-twitter-summary img { width: 5rem; flex: 0 0 5rem; aspect-ratio: 1; }
 .tf-seo-twitter-summary > div { min-width: 0; }
+.tf-seo-template { position: relative; background: var(--input-color-back, var(--color-background)); border: 1px solid var(--color-border); border-radius: var(--rounded); }
+.tf-seo-template:focus-within { outline: 2px solid var(--color-focus, #4271ce); outline-offset: -1px; }
+.tf-seo-template-toolbar { display: flex; flex-wrap: wrap; gap: .375rem; padding: .5rem; border-bottom: 1px solid var(--color-border); }
+.tf-seo-template-toolbar button, .tf-seo-analytics-button { font: inherit; font-size: .8rem; padding: .25rem .5rem; border-radius: .25rem; background: var(--color-background); border: 1px solid var(--color-border); cursor: pointer; }
+.tf-seo-template-toolbar button:last-child { margin-inline-start: auto; }
+.tf-seo-template-toolbar button:focus-visible, .tf-seo-analytics-button:focus-visible { outline: 2px solid #4271ce; }
+.tf-seo-template-editor, .tf-seo-template-code { min-height: 2.75rem; width: 100%; padding: .65rem .75rem 1.25rem; line-height: 1.8; outline: none; overflow-wrap: anywhere; white-space: pre-wrap; }
+.tf-seo-template-code { font-family: monospace; background: transparent; border: 0; color: inherit; }
+.tf-seo-token { display: inline-block; line-height: 1.5; padding: 0 .4rem; border-radius: .25rem; background: light-dark(#e1ebff, #233b65); color: light-dark(#214b90, #c5d8ff); white-space: nowrap; user-select: all; }
+.tf-seo-template-count { position: absolute; bottom: .2rem; right: .5rem; font-size: .7rem; color: var(--color-text-dimmed); }
+.tf-seo-analytics { display: grid; gap: 1rem; }
+.tf-seo-analytics select { width: 100%; min-width: 0; margin-block: .5rem; padding: .5rem; color: inherit; background: var(--color-background); border: 1px solid var(--color-border); }
+.tf-seo-analytics-button { margin: .25rem .25rem .25rem 0; }
+.tf-seo-analytics-button:disabled { opacity: .5; cursor: default; }
+.tf-seo-analytics a { display: block; margin-block-start: .75rem; font-size: .8rem; text-decoration: underline; }
+.tf-seo-analytics dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; font-size: .85rem; }
+.tf-seo-analytics dd { font-variant-numeric: tabular-nums; }
+.tf-seo-table-scroll { overflow-x: auto; max-height: 28rem; margin-block: .5rem; }
+.tf-seo-analytics table { width: 100%; font-size: .75rem; border-collapse: collapse; }
+.tf-seo-analytics th, .tf-seo-analytics td { padding: .4rem; border-bottom: 1px solid var(--color-border); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tf-seo-analytics th:first-child, .tf-seo-analytics td:first-child { text-align: left; min-width: 7rem; max-width: 16rem; white-space: normal; }

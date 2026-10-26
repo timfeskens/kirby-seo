@@ -26,3 +26,9 @@ fields:
       linkedin:
         label: LinkedIn
         type: url
+      bluesky:
+        label: Bluesky
+        type: url
+      mastodon:
+        label: Mastodon
+        type: url

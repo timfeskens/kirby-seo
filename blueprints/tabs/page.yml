@@ -79,6 +79,9 @@ columns:
               ogImage:
                 en: Social image
                 nl: Afbeelding voor sociale media
+              cropOgImage:
+                en: Crop social image
+                nl: Sociale afbeelding bijsnijden
               twitterCardType: Twitter/X-card
               twitterAuthor: Twitter/X-author
               robots:

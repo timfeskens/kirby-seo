@@ -13,6 +13,8 @@ use TimFeskens\Seo\Endpoints;
 use TimFeskens\Seo\Integrations;
 use TimFeskens\Seo\Preview;
 use TimFeskens\Seo\Seo;
+use TimFeskens\Seo\Analytics;
+use TimFeskens\Seo\SearchConsole;
 
 $count = 0;
 function check(bool $condition, string $message): void
@@ -24,10 +26,11 @@ function check(bool $condition, string $message): void
     }
 }
 
-function fixture(array $options = [], array $siteContent = []): array
+function fixture(array $options = [], array $siteContent = [], array $request = []): array
 {
     $root = sys_get_temp_dir() . '/kirby-seo-tests-' . getmypid();
     $kirby = new App([
+        'request' => $request,
         'roots' => ['index' => $root, 'cache' => $root . '/cache'],
         'urls' => ['index' => 'https://preview.example.test'],
         'options' => array_replace_recursive([
@@ -220,6 +223,110 @@ $toggle->fill('true');
 check($toggle->toArray()['value'] === true, 'Stored enabled toggle becomes a boolean');
 $toggle->fill('false');
 check($toggle->toArray()['value'] === false, 'Stored disabled toggle becomes a boolean');
+check(Analytics::providers() === [], 'Both analytics integrations disabled by default');
+check(Seo::metadata($page->clone(['content' => ['title' => 'Native', 'metaTemplate' => '{{title}} | {{site.title}}']]))['title'] === 'Native | Example', 'Compact legacy template tokens supported');
+$template = new Field('timfeskens-seo-template', ['name' => 'metaTemplate', 'model' => $page]);
+check($template->toStoredValue() === '', 'Chip editor does not pin inherited patterns');
+check($template->toArray()['type'] === 'timfeskens-seo-template', 'Dedicated template field registered');
+$cropParent = $page->parent()->clone(['content' => ['metaInherit' => 'cropOgImage', 'cropOgImage' => 'false']]);
+check(Seo::field($page->clone(['parent' => $cropParent]), 'cropOgImage')->value() === 'false', 'Migrated cropOgImage field inherits unchanged');
+$imageRoot = $page->root();
+Kirby\Filesystem\Dir::make($imageRoot);
+$imagePath = $imageRoot . '/social.png';
+$image = imagecreatetruecolor(640, 480);
+imagepng($image, $imagePath);
+$imagePage = $page->clone(['files' => [['filename' => 'social.png', 'content' => ['uuid' => 'test-social-image']]], 'content' => array_replace($page->content()->toArray(), ['ogImage' => '- social.png', 'cropOgImage' => 'false'])]);
+$imageMeta = Seo::metadata($imagePage);
+check($imageMeta['tags']['og:image:width'] === '640' && $imageMeta['tags']['og:image:height'] === '480', 'Disabled cropping retains original image dimensions');
+check(Preview::metadata($imagePage, ['cropOgImage' => 'true'])['tags']['og:image:width'] === '1200', 'Unsaved crop setting updates preview');
+unlink($imagePath);
+
+// Real OAuth state/PKCE, private token storage, refresh, queries and quota-safe caching.
+$private = sys_get_temp_dir() . '/kirby-seo-oauth-' . getmypid();
+mkdir($private, 0700, true);
+$tokenPath = $private . '/tokens.json';
+$requests = [];
+$options = [
+    'timfeskens.seo.searchConsole.enabled' => true,
+    'timfeskens.seo.searchConsole.credentials' => ['web' => ['client_id' => 'test-client', 'client_secret' => 'test-secret']],
+    'timfeskens.seo.searchConsole.tokenPath' => $tokenPath,
+    'timfeskens.seo.ahrefs.enabled' => true,
+    'timfeskens.seo.ahrefs.apiKey' => 'test-ahrefs-key',
+    'timfeskens.seo.analyticsTransport' => function ($url, $options) use (&$requests): array {
+        $requests[] = [$url, $options];
+        if (str_contains($url, '/token')) return ['access_token' => 'test-access', 'refresh_token' => 'test-refresh', 'expires_in' => 3600];
+        if (str_contains($url, '/searchAnalytics/query')) return ['rows' => [['keys' => ['cake <script>'], 'clicks' => 5, 'impressions' => 100, 'ctr' => .05, 'position' => 3.2]]];
+        if (str_contains($url, 'api.ahrefs.com')) return ['metrics' => ['org_keywords' => 7, 'org_traffic' => 42, 'unused' => 'not exposed']];
+        return ['siteEntry' => [['siteUrl' => 'sc-domain:example.test']]];
+    },
+];
+[$kirby, $page] = fixture($options);
+try { Analytics::data($page, 'ahrefs'); check(false, 'Anonymous analytics rejected'); }
+catch (RuntimeException $e) { check($e->getMessage() === 'Not allowed.', 'Anonymous analytics rejected'); }
+$kirby->impersonate('kirby');
+check(Analytics::data($page, 'searchConsole')['status'] === 'disconnected', 'Enabled GSC starts disconnected');
+$auth = SearchConsole::connect();
+parse_str((string)parse_url($auth, PHP_URL_QUERY), $authQuery);
+check($authQuery['scope'] === 'https://www.googleapis.com/auth/webmasters.readonly', 'OAuth uses only read-only scope');
+check($authQuery['code_challenge_method'] === 'S256', 'OAuth uses PKCE');
+$pending = $kirby->session()->get('timfeskens.seo.oauth');
+check(strlen($pending['state']) === 64, 'OAuth state is random');
+$kirby->session()->commit();
+[$kirby, $page] = fixture($options, request: ['query' => ['state' => $pending['state'], 'code' => 'test-code']]);
+$kirby->impersonate('kirby');
+$kirby->session()->set('timfeskens.seo.oauth', $pending);
+$invalid = $pending;
+$invalid['state'] = 'different-state';
+$kirby->session()->set('timfeskens.seo.oauth', $invalid);
+$before = count($requests);
+check(SearchConsole::callback()->code() === 400 && count($requests) === $before, 'Invalid OAuth state rejected before token exchange');
+$kirby->session()->set('timfeskens.seo.oauth', $pending);
+check(SearchConsole::callback()->code() === 302, 'Valid OAuth callback connects');
+check((fileperms($tokenPath) & 0777) === 0600, 'Tokens stored with private permissions');
+check($kirby->session()->get('timfeskens.seo.oauth') === null, 'OAuth state consumed');
+check(SearchConsole::callback()->code() === 400, 'OAuth callback replay rejected');
+check(Analytics::data($page, 'searchConsole')['status'] === 'property', 'Property selection required, never picks unrelated property');
+try { SearchConsole::selectProperty('sc-domain:unrelated.test'); check(false, 'Unknown property rejected'); }
+catch (RuntimeException) { check(true, 'Unknown property rejected'); }
+SearchConsole::selectProperty('sc-domain:example.test');
+$result = Analytics::data($page, 'searchConsole');
+check($result['rows'][0]['clicks'] === 5.0, 'Search query metrics returned');
+$queryRequest = array_values(array_filter($requests, fn ($r) => str_contains($r[0], '/searchAnalytics/query')))[0];
+$body = json_decode($queryRequest[1]['data'], true);
+check($body['dimensionFilterGroups'][0]['filters'][0]['expression'] === Seo::canonical($page), 'Page query uses canonical URL');
+check($body['dimensionFilterGroups'][0]['filters'][0]['operator'] === 'equals', 'Page filter never matches unrelated paths');
+$before = count($requests);
+Analytics::data($page, 'searchConsole');
+check(count($requests) === $before, 'Search Console queries cached');
+check(!str_contains(json_encode($result), 'test-secret') && !str_contains(json_encode($result), 'test-access'), 'No OAuth secrets in Panel response');
+$siteResult = Analytics::data($kirby->site(), 'searchConsole');
+$siteQuery = json_decode(end($requests)[1]['data'], true);
+check(!isset($siteQuery['dimensionFilterGroups']), 'Site query is property-wide');
+$result = Analytics::data($page, 'ahrefs');
+check($result['metrics'] === ['org_keywords' => 7, 'org_traffic' => 42], 'Ahrefs response allowlists metrics');
+$ahrefsRequest = end($requests);
+parse_str(parse_url($ahrefsRequest[0], PHP_URL_QUERY), $ahrefsQuery);
+check($ahrefsQuery['mode'] === 'exact' && $ahrefsQuery['target'] === Seo::canonical($page), 'Ahrefs page scope is exact canonical URL');
+$before = count($requests);
+Analytics::data($page, 'ahrefs');
+check(count($requests) === $before, 'Ahrefs results cached to avoid repeated quota charges');
+check(Analytics::data($kirby->page('hidden'), 'ahrefs')['status'] === 'excluded', 'Private/unlisted page URLs not sent');
+check(count($requests) === $before, 'Excluded pages do not contact provider');
+$tokens = json_decode(file_get_contents($tokenPath), true);
+$tokens['expires_at'] = 0;
+file_put_contents($tokenPath, json_encode($tokens));
+SearchConsole::selectProperty('sc-domain:example.test');
+check(json_decode(file_get_contents($tokenPath), true)['expires_at'] > time(), 'Expired access token refreshed');
+SearchConsole::disconnect();
+check(!is_file($tokenPath), 'Disconnect deletes private tokens');
+$kirby->session()->commit();
+[$kirby, $page] = fixture(array_replace($options, ['timfeskens.seo.searchConsole.enabled' => false, 'timfeskens.seo.ahrefs.enabled' => false]));
+$kirby->impersonate('kirby');
+$before = count($requests);
+try { Analytics::data($page, 'ahrefs'); check(false, 'Disabled provider inaccessible'); }
+catch (RuntimeException) { check(true, 'Disabled provider inaccessible'); }
+check(count($requests) === $before, 'Disabled integrations make no requests');
+rmdir($private);
 
 [$kirby, $page] = fixture(siteContent: ['robotsIndex' => 'false']);
 check(!Seo::indexable($page), 'Global Panel indexing setting applies to pages');

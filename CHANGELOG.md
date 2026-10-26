@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.9 — 2026-10-26
+
+- Add an independent visual title-template field with insertable variable chips,
+  code view, and unchanged `metaTemplate`/`ogTemplate` storage.
+- Support compact template tokens, inherited `cropOgImage`, original image
+  dimensions when cropping is disabled, and Bluesky/Mastodon profile keys.
+- Add optional, disabled-by-default Google Search Console OAuth/read-only reports
+  and Ahrefs API v3 metrics. Keep credentials server-side, cache results for 24
+  hours, and exclude non-indexable pages from per-page requests.
+- Document field compatibility, migration boundaries and private token setup.
+
 ## 0.1.8 — 2026-10-25
 
 - Add automatic sitemap priorities based on content URL depth: homepage 1.0, then 0.8, 0.6, 0.4, 0.2 and a minimum of 0.1.

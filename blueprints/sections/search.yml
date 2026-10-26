@@ -9,12 +9,12 @@ fields:
     label:
       en: Title pattern
       nl: Titelpatroon
-    type: timfeskens-seo-text
+    type: timfeskens-seo-template
     default: '{{ title }} - {{ site.title }}'
     placeholder: '{{ title }} - {{ site.title }}'
     help:
-      en: 'Use {{ title }}, {{ page.title }} and {{ site.title }}. Default: {{ title }} - {{ site.title }}.'
-      nl: 'Gebruik {{ title }}, {{ page.title }} en {{ site.title }}. Standaard: {{ title }} - {{ site.title }}.'
+      en: Insert title variables with the buttons. Type separators or other text between them. Use the code view to edit the stored pattern directly.
+      nl: Voeg titelvariabelen toe met de knoppen. Typ scheidingstekens of andere tekst ertussen. Bewerk het opgeslagen patroon direct in de codeweergave.
   metaDescription:
     label:
       en: Meta description

@@ -15,6 +15,12 @@ columns:
               nl: Standaardinstellingen voor de hele website. Afzonderlijke pagina’s kunnen hiervan afwijken.
       seoSocial:
         extends: sections/seo-social
+        fields:
+          cropOgImage:
+            options:
+              default:
+                en: Automatic (crop)
+                nl: Automatisch (bijsnijden)
       seoRobots:
         extends: sections/seo-robots-site
       seoProfiles:

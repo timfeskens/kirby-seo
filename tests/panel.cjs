@@ -32,13 +32,15 @@ const server = http.createServer((req, res) => {
     window.calls = [];
     Vue.prototype.$panel = {translation: {code: 'nl'}};
     Vue.prototype.$api = {async post(url, data) {
-      window.calls.push({url, data});
+       window.calls.push({url, data});
+       if (url.endsWith('/data/ahrefs')) return {status: 'connected', metrics: {org_keywords: 7, org_traffic: 42}, date: '2026-10-25'};
+       if (url.endsWith('/data/searchConsole')) return {status: 'connected', property: 'sc-domain:example.test', startDate: '2026-09-26', endDate: '2026-10-23', rows: Array.from({length: 12}, (_, i) => ({query: 'cake <script>' + i, clicks: i, impressions: i * 10, ctr: .1, position: i + 1}))};
       if (url.endsWith('/suggest')) return {title: 'Suggestion', description: 'Review me'};
       const title = data.content.metatitle || 'Default';
        return {title, canonical: 'https://example.test/page', tags: {'og:title': title, 'og:site_name': 'Example', 'og:description': 'Facebook description', 'twitter:title': 'Twitter title', 'twitter:description': 'Twitter description', 'twitter:card': 'summary', description: data.content.metadescription, robots: 'noindex'}};
     }};
     window.app = new Vue({el: '#app', data: {versions: {changes: {}}, content: {metatitle: 'First', metadescription: 'Description'}},
-      render(h) { return h('k-timfeskens-seo-preview-field', {props: {label: 'SEO', ai: true, endpoints: {field: 'pages/test/fields/seopreview'}, preview: {title: 'Initial', canonical: 'https://example.test/page', tags: {description: 'Initial description', robots: 'noindex'}}}}); }
+      render(h) { return h('div', [h('k-timfeskens-seo-preview-field', {props: {label: 'SEO', ai: true, endpoints: {field: 'pages/test/fields/seopreview'}, preview: {title: 'Initial', canonical: 'https://example.test/page', tags: {description: 'Initial description', robots: 'noindex'}}}}), h('k-timfeskens-seo-analytics-field', {props: {providers: ['searchConsole', 'ahrefs'], endpoints: {field: 'pages/test/fields/seoanalytics'}}})]); }
     });
     </script></body></html>`);
 });
@@ -58,14 +60,24 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.evaluate(() => window.pwned), undefined, 'Preview renders escaped text');
     await page.getByRole('region', {name: 'Twitter / X', exact: true}).getByText('Twitter title', {exact: true}).waitFor();
     await page.getByRole('region', {name: 'Facebook', exact: true}).getByText('Facebook description', {exact: true}).waitFor();
-    assert.equal(await page.evaluate(() => window.calls[0].url), 'pages/test/fields/seopreview/preview', 'Field endpoint');
+    assert.equal(await page.evaluate(() => window.calls.some(call => call.url === 'pages/test/fields/seopreview/preview')), true, 'Field endpoint');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'No mobile overflow');
     page.on('dialog', dialog => dialog.accept());
     await page.getByRole('button', {name: 'AI-suggestie maken'}).click();
     await page.getByText('Review me', {exact: true}).waitFor();
     assert.equal(await page.evaluate(() => window.app.content.metatitle), 'Changed <script>window.pwned=true</script>', 'Suggestions never overwrite fields');
+    const queries = page.getByRole('region', {name: 'Google Search Console', exact: true});
+    assert.equal(await queries.locator('tbody tr').count(), 10, 'GSC shows top 10 queries');
+    assert.equal(await queries.locator('tbody tr').first().locator('td').first().innerText(), 'cake <script>11', 'GSC sorts by clicks and escapes query strings');
+    await queries.getByRole('combobox').selectOption('position');
+    assert.equal(await queries.locator('tbody tr').first().locator('td').first().innerText(), 'cake <script>0', 'Best position sorts first');
+    await queries.getByRole('button', {name: 'Alles tonen'}).click();
+    assert.equal(await queries.locator('tbody tr').count(), 12, 'All queries available');
+    assert.equal(await page.getByRole('region', {name: 'Ahrefs', exact: true}).locator('dd').last().innerText(), '42', 'Ahrefs metrics render');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Analytics do not overflow mobile');
     assert.deepEqual(errors, [], 'No browser errors');
     await realPanel(browser);
+    await realPanel(browser, true);
     console.log('Passed browser checks: real Kirby Panel, responsive previews, safe text, manual AI review, styled sitemap and empty/multilingual views.');
   } finally {
     await browser.close();
@@ -73,13 +85,13 @@ const server = http.createServer((req, res) => {
   }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
 
-async function realPanel(browser) {
+async function realPanel(browser, analytics = false) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'kirby-seo-panel-'));
   const socket = require('node:net').createServer();
   await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve));
   const port = socket.address().port;
   await new Promise(resolve => socket.close(resolve));
-  const php = spawn('php', ['-S', `127.0.0.1:${port}`, path.join(root, 'tests/panel-router.php')], {cwd: root, env: {...process.env, SEO_PANEL_TEST_ROOT: temporary}});
+  const php = spawn('php', ['-S', `127.0.0.1:${port}`, path.join(root, 'tests/panel-router.php')], {cwd: root, env: {...process.env, SEO_PANEL_TEST_ROOT: temporary, SEO_PANEL_ANALYTICS: analytics ? '1' : '0'}});
   let logs = '';
   php.stderr.on('data', chunk => {logs += chunk;});
   php.stdout.on('data', chunk => {logs += chunk;});
@@ -95,6 +107,15 @@ async function realPanel(browser) {
     });
     await page.goto(`http://127.0.0.1:${port}/panel/site?tab=seo`);
     await page.getByRole('region', {name: 'Google', exact: true}).waitFor();
+    if (analytics) {
+      await page.getByRole('region', {name: 'Ahrefs', exact: true}).getByText('42', {exact: true}).waitFor();
+      await page.getByRole('region', {name: 'Google Search Console', exact: true}).getByText(/Stel de inloggegevens/).waitFor();
+      await page.setViewportSize({width: 390, height: 844});
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Real analytics Panel fits mobile');
+      assert.deepEqual(errors, [], 'Real enabled analytics endpoints work');
+      return;
+    }
+    assert.equal(await page.locator('.tf-seo-analytics').count(), 0, 'Disabled analytics are invisible');
     assert.equal(await page.getByText(/Het veldtype .* bestaat niet/).count(), 0, 'No unknown field error in real Panel');
     await page.getByRole('heading', {name: 'Zoekmachines', exact: true}).waitFor();
     await page.getByRole('heading', {name: 'Delen op sociale media', exact: true}).waitFor();
@@ -106,15 +127,36 @@ async function realPanel(browser) {
     }
     await responsiveLayout(page, 'site');
     for (const [name, expected] of [['metatemplate', '{{ title }} - {{ site.title }}'], ['ogtemplate', '{{ title }}'], ['ogsitename', '{{ site.title }}']]) {
-      const input = page.locator(`input[name="${name}"]`);
-      assert.equal(await input.inputValue(), expected, `${name} default in real Panel`);
-      assert.equal(await input.getAttribute('placeholder'), expected, `${name} placeholder in real Panel`);
+      if (name === 'ogsitename') {
+        const input = page.locator(`input[name="${name}"]`);
+        assert.equal(await input.inputValue(), expected, `${name} default in real Panel`);
+        assert.equal(await input.getAttribute('placeholder'), expected, `${name} placeholder in real Panel`);
+      } else {
+        assert.equal(await page.locator(`.k-field-name-${name} .tf-seo-token`).count(), name === 'metatemplate' ? 2 : 1, 'Template variables render as chips');
+        await page.locator(`.k-field-name-${name}`).getByRole('button', {name: 'Code', exact: true}).click();
+        assert.equal(await page.locator(`input[name="${name}"]`).inputValue(), expected, 'Stored pattern is unchanged');
+        await page.locator(`.k-field-name-${name}`).getByRole('button', {name: 'Visueel', exact: true}).click();
+      }
     }
     assert.equal(await page.locator('select[name="twittercardtype"]').inputValue(), 'default', 'Automatic card selection filled');
     assert.equal(await page.locator('select[name="robotsindex"]').inputValue(), 'default', 'Automatic indexing selection filled');
     assert.equal(await page.locator('.k-label-invalid:visible').count(), 0, 'Defaults produce no visible validation errors');
-    await page.locator('input[name="metatemplate"]').fill('{{ title }} | {{ site.title }}');
+    const titleField = page.locator('.k-field-name-metatemplate');
+    await titleField.getByRole('textbox').fill('');
+    await titleField.getByRole('button', {name: 'Invoegen: Titel', exact: true}).click();
+    await titleField.getByRole('textbox').pressSequentially(' | ');
+    await titleField.getByRole('button', {name: 'Invoegen: Websitetitel', exact: true}).click();
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('Home | Example', {exact: true}).waitFor();
+    await titleField.getByRole('button', {name: 'Code', exact: true}).click();
+    assert.equal(await page.locator('input[name="metatemplate"]').inputValue(), '{{ title }} | {{ site.title }}', 'Chip insertion serializes portable plain tokens');
+    await page.locator('input[name="metatemplate"]').fill('{{title}} <img src=x onerror="window.pwned=true"> {{site.title}}');
+    await titleField.getByRole('button', {name: 'Visueel', exact: true}).click();
+    assert.equal(await titleField.locator('img').count(), 0, 'Template text is never interpreted as markup');
+    assert.equal(await page.evaluate(() => window.pwned), undefined, 'Template cannot execute stored markup');
+    await titleField.getByRole('button', {name: 'Code', exact: true}).click();
+    await page.locator('input[name="metatemplate"]').fill('{{ title }} | {{ site.title }}');
+    await titleField.getByRole('button', {name: 'Visueel', exact: true}).click();
+    await page.locator('.k-field-name-ogtemplate').getByRole('button', {name: 'Code', exact: true}).click();
     await page.locator('input[name="ogtemplate"]').fill('{{ title }} social');
     await page.getByRole('region', {name: 'Facebook', exact: true}).getByText('Home social', {exact: true}).waitFor();
     await page.getByRole('region', {name: 'Twitter / X', exact: true}).getByText('Home social', {exact: true}).waitFor();
@@ -197,7 +239,7 @@ async function realPanel(browser) {
 async function responsiveLayout(page, model) {
   assert.equal(await page.locator('.k-field-name-robotsarchive').count(), 0, 'Obsolete archive control removed');
   assert.doesNotMatch(await page.locator('.tf-seo-google').innerText(), /~60|~160|tekens|characters/, 'No preview character guidance');
-  assert.equal(await page.locator('.k-field-name-metatemplate .k-counter').count(), 1, 'Normal input counter retained');
+  assert.equal(await page.locator('.k-field-name-metatemplate .tf-seo-template-count').count(), 1, 'Template character counter retained');
   for (const width of [1920, 1440, 1280, 1024, 768, 390, 375]) {
     await page.setViewportSize({width, height: 1000});
     const layout = await page.evaluate(() => {

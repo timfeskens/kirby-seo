@@ -41,7 +41,7 @@ final class Preview
 
     public static function metadata(ModelWithContent $model, array $data): array
     {
-        $allowed = ['title', 'metaTitle', 'metaTemplate', 'metaDescription', 'ogTemplate', 'ogDescription', 'ogSiteName', 'useTitleTemplate', 'useOgTemplate', 'twitterCardType', 'twitterAuthor', 'canonicalUrl', 'ogImage', 'robotsIndex', 'robotsFollow', 'robotsArchive', 'robotsImageindex', 'robotsSnippet', 'socialMediaAccounts'];
+        $allowed = ['title', 'metaTitle', 'metaTemplate', 'metaDescription', 'ogTemplate', 'ogDescription', 'ogSiteName', 'useTitleTemplate', 'useOgTemplate', 'twitterCardType', 'twitterAuthor', 'canonicalUrl', 'ogImage', 'cropOgImage', 'robotsIndex', 'robotsFollow', 'robotsArchive', 'robotsImageindex', 'robotsSnippet', 'socialMediaAccounts'];
         $data = array_intersect_key(array_change_key_case($data), array_flip(array_map('strtolower', $allowed)));
         foreach ($data as &$value) {
             if (is_array($value)) {

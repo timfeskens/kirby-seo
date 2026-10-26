@@ -102,11 +102,8 @@ final class Seo
     private static function pattern(string $pattern, string $title, string $site, Page $page, ?string $language): string
     {
         // Deliberately not an arbitrary Kirby query/template evaluator.
-        return strtr($pattern, [
-            '{{ title }}' => $title,
-            '{{ page.title }}' => (string)$page->content($language)->get('title')->value(),
-            '{{ site.title }}' => $site,
-        ]);
+        $variables = ['title' => $title, 'page.title' => (string)$page->content($language)->get('title')->value(), 'site.title' => $site];
+        return preg_replace_callback('/\{\{\s*(title|page\.title|site\.title)\s*\}\}/u', static fn (array $match) => $variables[$match[1]], $pattern) ?? $pattern;
     }
 
     public static function metadata(Page $page, ?string $language = null): array
@@ -122,8 +119,13 @@ final class Seo
         $description = self::text($get('metaDescription')->or(self::option('description', ''))->value());
         $image = $get('ogImage')->toFile();
         $imageUrl = null;
-        if ($image && $image->type() === 'image' && $image->isResizable()) {
-            $imageUrl = $image->thumb(['width' => 1200, 'height' => 630, 'crop' => true])->url();
+        $imageWidth = $imageHeight = null;
+        if ($image && $image->type() === 'image') {
+            $crop = $get('cropOgImage')->or('true')->toBool();
+            $socialImage = $crop && $image->isResizable() ? $image->thumb(['width' => 1200, 'height' => 630, 'crop' => true]) : $image;
+            $imageUrl = $socialImage->url();
+            $imageWidth = $socialImage->width();
+            $imageHeight = $socialImage->height();
         }
         $locale = $language ? $page->kirby()->language($language)?->locale(LC_ALL) : $page->kirby()->language()?->locale(LC_ALL);
         $locale = preg_replace('/[.@].*$/', '', (string)($locale ?: self::option('locale', 'en_US')));
@@ -158,8 +160,8 @@ final class Seo
                 'og:locale' => $locale,
                 'og:url' => $canonical,
                 'og:image' => $imageUrl,
-                'og:image:width' => $imageUrl ? '1200' : null,
-                'og:image:height' => $imageUrl ? '630' : null,
+                'og:image:width' => $imageWidth ? (string)$imageWidth : null,
+                'og:image:height' => $imageHeight ? (string)$imageHeight : null,
                 'og:image:alt' => $imageUrl ? $image->alt()->or($title)->value() : null,
                 'twitter:card' => $get('twitterCardType')->or($imageUrl ? 'summary_large_image' : 'summary')->value(),
                 'twitter:title' => $ogTitle,

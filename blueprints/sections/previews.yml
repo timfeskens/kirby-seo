@@ -5,3 +5,5 @@ fields:
       en: Preview
       nl: Voorbeeld
     type: timfeskens-seo-preview
+  seoAnalytics:
+    type: timfeskens-seo-analytics

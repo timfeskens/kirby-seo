@@ -147,7 +147,7 @@ try {
 
 // Instantiate a real Kirby field and resolve blueprint extensions.
 $blueprint = Kirby\Cms\Blueprint::load('tabs/seo-page');
-check(isset($blueprint['columns']['settings']['sections']['seoAdvanced']['fields']['canonicalUrl']), 'Page blueprint registered');
+check(!isset($blueprint['columns']['settings']['sections']['seoAdvanced']['fields']['canonicalUrl']), 'Canonical overrides are config-only, not Panel controls');
 $field = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $page]);
 check($field->toArray()['preview']['canonical'] === $meta['canonical'], 'Preview field serializes');
 $siteField = new Field('timfeskens-seo-preview', ['name' => 'seoPreview', 'model' => $kirby->site()]);
@@ -194,7 +194,7 @@ foreach (['site', 'page'] as $type) {
     }
     check(!isset($props['robotsarchive']), $type . ' obsolete archive control absent');
     if ($type === 'page') {
-        foreach (['metatitle', 'usetitletemplate', 'useogtemplate', 'canonicalurl', 'twitterauthor', 'metainherit'] as $name) {
+        foreach (['metatitle', 'usetitletemplate', 'useogtemplate', 'twitterauthor', 'metainherit'] as $name) {
             check(isset($props[$name]), 'Page-specific field retained: ' . $name);
         }
         check(!isset($props['ogsitename']) && !isset($props['socialmediaaccounts']), 'Site-only fields absent on pages');
@@ -282,6 +282,7 @@ $options = [
     'timfeskens.seo.searchConsole.tokenPath' => $tokenPath,
     'timfeskens.seo.ahrefs.enabled' => true,
     'timfeskens.seo.ahrefs.apiKey' => 'test-ahrefs-key',
+    'timfeskens.seo.ahrefs.mode' => 'paid',
     'timfeskens.seo.analyticsTransport' => function ($url, $options) use (&$requests): array {
         $requests[] = [$url, $options];
         if (str_contains($url, '/token')) return ['access_token' => 'test-access', 'refresh_token' => 'test-refresh', 'expires_in' => 3600];
@@ -357,6 +358,36 @@ try { Analytics::data($page, 'ahrefs'); check(false, 'Disabled provider inaccess
 catch (RuntimeException) { check(true, 'Disabled provider inaccessible'); }
 check(count($requests) === $before, 'Disabled integrations make no requests');
 rmdir($private);
+
+[$kirby, $page] = fixture([
+    'timfeskens.seo.ahrefs.enabled' => true,
+    'timfeskens.seo.ahrefs.apiKey' => 'free-test-key',
+    'timfeskens.seo.analyticsTransport' => function ($url, $options) use (&$requests): array {
+        $requests[] = [$url, $options];
+        return ['domain_rating' => ['domain_rating' => 5, 'license' => 'http://ahrefs.com/legal/domain-rating-license']];
+    },
+]);
+$kirby->impersonate('kirby');
+$free = Analytics::data($kirby->site(), 'ahrefs');
+check($free['mode'] === 'free' && $free['metrics'] === ['domain_rating' => 5.0], 'Ahrefs defaults to free Domain Rating, not paid Site Explorer');
+$request = end($requests);
+check(str_contains($request[0], '/v3/public/domain-rating-free?target=example.test') && $request[1]['headers']['Authorization'] === 'Bearer free-test-key', 'Free endpoint uses a free key and domain-only scope');
+$before = count($requests);
+check(Analytics::data($page, 'ahrefs')['metrics'] == $free['metrics'] && count($requests) === $before, 'Domain Rating cache is shared between site and page reports');
+[$kirby, $page] = fixture(['timfeskens.seo.ahrefs.enabled' => true]);
+$kirby->impersonate('kirby');
+check(Analytics::data($page, 'ahrefs')['status'] === 'credentials', 'Missing key explains free-key requirement without anonymous or paid requests');
+check(count($requests) === $before, 'No Ahrefs network request without a key');
+
+// Apply a callback to every page to verify config precedence independently of IDs.
+[$kirby, $page] = fixture(['timfeskens.seo.canonicalUrl' => static fn ($page, $language) => 'https://original.example.test/config']);
+check(Seo::metadata($page)['canonical'] === 'https://original.example.test/config', 'Canonical URL callback is configurable outside the Panel');
+check(!str_contains(Endpoints::sitemap()->body(), '<url>'), 'Config-canonicalized duplicates are excluded from sitemap');
+[$kirby, $page] = fixture(['timfeskens.seo.canonicalUrl' => 'javascript:alert(1)']);
+check(Seo::canonical($page) === Seo::canonicalDefault($page), 'Invalid config canonical cannot inject unsafe URL schemes');
+check(Preview::metadata($page, ['canonicalUrl' => 'https://untrusted.example.test'])['canonical'] === Seo::canonical($page), 'Preview API cannot introduce unsaved canonical overrides');
+[$kirby, $page] = fixture(['timfeskens.seo.canonicalUrl' => static fn ($page, $language) => null]);
+check(Seo::canonical($kirby->page('duplicate')) === 'https://original.example.test/article', 'Null config callback preserves migrated canonical content');
 
 [$kirby, $page] = fixture(siteContent: ['robotsIndex' => 'false']);
 check(!Seo::indexable($page), 'Global Panel indexing setting applies to pages');

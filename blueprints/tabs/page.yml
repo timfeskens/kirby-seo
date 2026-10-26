@@ -50,14 +50,6 @@ columns:
             label:
               en: Advanced and inheritance
               nl: Geavanceerd en overerving
-          canonicalUrl:
-            label:
-              en: Canonical URL override
-              nl: Afwijkende canonieke URL
-            type: url
-            help:
-              en: Leave empty unless this content has its original version elsewhere.
-              nl: Laat leeg, tenzij de oorspronkelijke versie van deze inhoud ergens anders staat.
           metaInherit:
             label:
               en: Pass these settings to child pages

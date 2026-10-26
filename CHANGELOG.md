@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.13 — 2026-10-26
+
+- Default optional Ahrefs reports to free Domain Rating with domain-wide caching,
+  attribution and free-key setup guidance. Paid Site Explorer requires explicit
+  `ahrefs.mode: paid`; anonymous free requests are not supported by Ahrefs.
+- Move canonical overrides to a `canonicalUrl` PHP string/callback, retaining
+  migrated content overrides and excluding canonicalized duplicates from sitemaps.
+- Add a reports heading and Google Search Console query summary below previews,
+  with accessible report skeletons and honest query-summary scope labels.
+- Filter preview requests to SEO edits, deduplicate unchanged values and coalesce
+  concurrent edits into one trailing request, ignoring stale/disposed responses.
+- Document direct private PHP configuration and Ansible Vault setup.
+
 ## 0.1.12 — 2026-10-26
 
 - Subscribe directly to Kirby's reactive unsaved content store and throttle

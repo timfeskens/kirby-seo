@@ -6,4 +6,7 @@ fields:
       nl: Voorbeeld
     type: timfeskens-seo-preview
   seoAnalytics:
+    label:
+      en: Search performance
+      nl: Zoekprestaties
     type: timfeskens-seo-analytics

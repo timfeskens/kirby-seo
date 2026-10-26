@@ -36,3 +36,9 @@
 .tf-seo-analytics table { width: 100%; font-size: .75rem; border-collapse: collapse; }
 .tf-seo-analytics th, .tf-seo-analytics td { padding: .4rem; border-bottom: 1px solid var(--color-border); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tf-seo-analytics th:first-child, .tf-seo-analytics td:first-child { text-align: left; min-width: 7rem; max-width: 16rem; white-space: normal; }
+.tf-seo-analytics > h2 { font-weight: 600; margin-block: 1.25rem .75rem; }
+.tf-seo-skeleton { display: grid; gap: .65rem; padding-block: .5rem; }
+.tf-seo-skeleton span { display: block; height: .85rem; border-radius: .25rem; background: var(--color-gray-300, #dedede); opacity: .65; }
+.tf-seo-skeleton span:nth-child(2) { width: 75%; }
+.tf-seo-skeleton span:nth-child(3) { width: 55%; }
+.tf-seo-metrics { margin-block: .75rem; }

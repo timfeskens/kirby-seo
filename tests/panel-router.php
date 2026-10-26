@@ -46,6 +46,7 @@ $kirby = new Kirby\Cms\App([
         'timfeskens.seo.searchConsole.enabled' => getenv('SEO_PANEL_ANALYTICS') === '1',
         'timfeskens.seo.ahrefs.enabled' => getenv('SEO_PANEL_ANALYTICS') === '1',
         'timfeskens.seo.ahrefs.apiKey' => 'fixture-only',
+        'timfeskens.seo.ahrefs.mode' => 'paid',
         'timfeskens.seo.analyticsTransport' => static fn () => ['metrics' => ['org_keywords' => 7, 'org_traffic' => 42]],
     ],
     'blueprints' => [

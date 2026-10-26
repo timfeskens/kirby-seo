@@ -77,11 +77,7 @@ final class Endpoints
         if (!Seo::indexable($page, $language)) {
             return false;
         }
-        $override = (string)Seo::field($page, 'canonicalUrl', $language)->value();
-        // Match metadata validation: invalid overrides do not suppress a valid page URL.
-        return !filter_var($override, FILTER_VALIDATE_URL)
-            || !in_array(parse_url($override, PHP_URL_SCHEME), ['http', 'https'], true)
-            || $override === Seo::canonical($page, $language);
+        return Seo::canonical($page, $language) === Seo::canonicalDefault($page, $language);
     }
 
     public static function robots(): Response

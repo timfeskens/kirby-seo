@@ -92,7 +92,7 @@ panel.plugin("timfeskens/seo", {
       },
     },
     "timfeskens-seo-analytics": {
-      props: { providers: { type: Array, default: () => [] }, endpoints: Object },
+      props: { label: String, providers: { type: Array, default: () => [] }, endpoints: Object },
       data() { return { results: {}, busy: {}, metric: "clicks", all: false, property: "" }; },
       computed: { nl() { return this.$panel.translation?.code?.startsWith("nl"); } },
       mounted() { this.providers.forEach(provider => this.load(provider)); },
@@ -134,13 +134,14 @@ panel.plugin("timfeskens/seo", {
           error: text("Could not load data. Check credentials, access, private token storage and API quota.", "Gegevens konden niet worden geladen. Controleer de inloggegevens, toegang, privéopslag voor tokens en het API-quotum."),
           excluded: text("Analytics are not requested for pages excluded from indexing.", "Voor pagina’s die niet geïndexeerd mogen worden, worden geen gegevens opgevraagd."),
         };
-        return h("div", { class: "tf-seo-analytics" }, this.providers.map(provider => {
+        return h("div", { class: "tf-seo-analytics" }, [h("h2", this.label || text("Search performance", "Zoekprestaties")), ...this.providers.map(provider => {
           const result = this.results[provider];
           const gsc = provider === "searchConsole";
           const children = [h("h3", gsc ? "Google Search Console" : "Ahrefs")];
-          if (!result || this.busy[provider]) children.push(h("p", text("Loading…", "Laden…")));
+          if (!result || this.busy[provider]) children.push(h("div", { class: "tf-seo-skeleton", attrs: { role: "status", "aria-label": text("Loading reports", "Rapporten laden") } }, [h("span"), h("span"), h("span")]));
           else if (result.status !== "connected") {
-            children.push(h("p", { attrs: { role: "status" } }, messages[result.status] || messages.error));
+            children.push(h("p", { attrs: { role: "status" } }, !gsc && result.status === "credentials" ? text("Free Domain Rating needs a free Ahrefs API key. Add it to private config; no paid subscription is required.", "Gratis Domain Rating vereist een gratis Ahrefs API-sleutel. Voeg deze toe aan de privéconfiguratie; een betaald abonnement is niet nodig.") : messages[result.status] || messages.error));
+            if (!gsc && result.status === "credentials") children.push(h("a", { attrs: { href: "https://app.ahrefs.com/account/api-keys", target: "_blank", rel: "noopener noreferrer" } }, text("Create a free API key", "Gratis API-sleutel aanmaken")));
             if (gsc && result.admin && result.status === "disconnected") children.push(button(text("Connect Google", "Google verbinden"), this.connect));
             if (gsc && result.admin && result.status === "property") children.push(
               h("select", { attrs: { "aria-label": "Search Console property" }, domProps: { value: this.property }, on: { change: event => { this.property = event.target.value; } } }, [h("option", { attrs: { value: "" } }, text("Select property", "Kies een property")), ...(result.properties || []).map(property => h("option", { domProps: { value: property } }, property))]),
@@ -152,6 +153,10 @@ panel.plugin("timfeskens/seo", {
             const rows = [...(result.rows || [])].sort((a, b) => this.metric === "position" ? a.position - b.position : b[this.metric] - a[this.metric]);
             const visible = this.all ? rows : rows.slice(0, 10);
             children.push(h("p", { class: "tf-seo-note" }, `${result.startDate} – ${result.endDate} · ${result.property}`));
+            const totals = rows.reduce((sum, row) => ({ clicks: sum.clicks + row.clicks, impressions: sum.impressions + row.impressions, weighted: sum.weighted + row.position * row.impressions }), { clicks: 0, impressions: 0, weighted: 0 });
+            const summary = { clicks: totals.clicks, impressions: totals.impressions, ctr: totals.impressions ? totals.clicks / totals.impressions : 0, position: totals.impressions ? totals.weighted / totals.impressions : 0 };
+            children.push(h("dl", { class: "tf-seo-metrics" }, Object.entries(summary).flatMap(([key, value]) => [h("dt", metrics[key]), h("dd", this.format(value, key))])));
+            children.push(h("small", { class: "tf-seo-note" }, text("Summary of returned queries; Google may omit anonymized queries.", "Samenvatting van de opgehaalde zoekopdrachten; Google kan geanonimiseerde zoekopdrachten weglaten.")));
             children.push(h("select", { attrs: { "aria-label": text("Sort queries", "Zoekopdrachten sorteren") }, domProps: { value: this.metric }, on: { change: event => { this.metric = event.target.value; } } }, Object.entries(metrics).map(([value, label]) => h("option", { domProps: { value } }, label))));
             if (!rows.length) children.push(h("p", text("No search queries in this period.", "Geen zoekopdrachten in deze periode.")));
             else children.push(h("div", { class: "tf-seo-table-scroll", attrs: { tabindex: "0" } }, [h("table", [
@@ -161,14 +166,15 @@ panel.plugin("timfeskens/seo", {
             if (rows.length > 10) children.push(button(this.all ? text("Show top 10", "Toon top 10") : text("Show all", "Alles tonen"), () => { this.all = !this.all; }));
             if (result.admin) children.push(button(text("Change property", "Property wijzigen"), this.properties), button(text("Reconnect", "Opnieuw verbinden"), this.connect), button(text("Disconnect", "Loskoppelen"), this.disconnect));
           } else {
-            const labels = { org_keywords: text("Organic keywords", "Organische zoekwoorden"), org_keywords_1_3: text("Top 3 keywords", "Zoekwoorden in top 3"), org_traffic: text("Estimated monthly organic traffic", "Geschat maandelijks organisch verkeer"), paid_keywords: text("Paid keywords", "Betaalde zoekwoorden") };
+            const labels = { domain_rating: "Domain Rating", org_keywords: text("Organic keywords", "Organische zoekwoorden"), org_keywords_1_3: text("Top 3 keywords", "Zoekwoorden in top 3"), org_traffic: text("Estimated monthly organic traffic", "Geschat maandelijks organisch verkeer"), paid_keywords: text("Paid keywords", "Betaalde zoekwoorden") };
             children.push(h("dl", Object.entries(result.metrics || {}).flatMap(([key, value]) => [h("dt", labels[key] || key), h("dd", value === null ? "—" : this.format(value, key))])));
-            children.push(h("p", { class: "tf-seo-note" }, `${result.date} · ${text("Ahrefs estimates, not measured visits", "Schattingen van Ahrefs, geen gemeten bezoeken")}`));
+            if (result.mode === "free") children.push(h("a", { attrs: { href: "https://ahrefs.com/", target: "_blank", rel: "noopener noreferrer" } }, "Domain Rating by Ahrefs"), h("p", { class: "tf-seo-note" }, text("Free domain-wide backlink rating (0–100), not page traffic or a Google ranking score.", "Gratis domeinbrede backlinkscore (0–100), geen paginaverkeer of Google-rangschikkingsscore.")));
+            else children.push(h("p", { class: "tf-seo-note" }, `${result.date} · ${text("Ahrefs estimates, not measured visits", "Schattingen van Ahrefs, geen gemeten bezoeken")}`));
           }
           children.push(h("a", { attrs: { href: gsc ? "https://search.google.com/search-console" : "https://app.ahrefs.com/site-explorer", target: "_blank", rel: "noopener noreferrer" } }, text("Open in ", "Open in ") + (gsc ? "Google Search Console" : "Ahrefs")));
           children.push(h("small", { class: "tf-seo-note" }, text("Results cached for 24 hours.", "Resultaten worden 24 uur bewaard.")));
           return h("section", { class: "tf-seo-card", attrs: { "aria-label": gsc ? "Google Search Console" : "Ahrefs" } }, children);
-        }));
+        })]);
       },
     },
     "timfeskens-seo-text": { extends: "k-text-field" },
@@ -181,17 +187,21 @@ panel.plugin("timfeskens/seo", {
     "timfeskens-seo-preview": {
       props: { label: String, preview: Object, endpoints: Object, ai: Boolean },
       data() {
-        return { current: this.preview, timer: null, request: 0, suggestion: null, busy: false, error: "" };
+        return { current: this.preview, timer: null, request: 0, suggestion: null, busy: false, error: "", refreshing: false, pending: false, disposed: false };
       },
       computed: {
         // Read Kirby's reactive form store, not a component ancestor. The store
         // is merged synchronously on input, before lazy draft persistence.
-        values() { return this.$panel.content.version("changes") || {}; },
+        values() {
+          const content = this.$panel.content.version("changes") || {};
+          const keys = ["title", "metatitle", "metatemplate", "metadescription", "metainherit", "ogtemplate", "ogdescription", "ogsitename", "usetitletemplate", "useogtemplate", "twittercardtype", "twitterauthor", "ogimage", "cropogimage", "robotsindex", "robotsfollow", "robotsarchive", "robotsimageindex", "robotssnippet", "socialmediaaccounts"];
+          return Object.fromEntries(keys.filter(key => key in content).map(key => [key, content[key]]));
+        },
+        signature() { return JSON.stringify(this.values); },
         nl() { return this.$panel.translation?.code?.startsWith("nl") || document.documentElement.lang.startsWith("nl"); },
       },
       watch: {
-        values: {
-          deep: true,
+        signature: {
           handler() {
             // Invalidate older responses immediately and throttle (not debounce)
             // so the preview also updates during uninterrupted typing.
@@ -201,15 +211,22 @@ panel.plugin("timfeskens/seo", {
         },
       },
       mounted() { this.refresh(); },
-      beforeDestroy() { clearTimeout(this.timer); this.request++; },
+      beforeDestroy() { clearTimeout(this.timer); this.request++; this.disposed = true; },
       methods: {
         async refresh() {
+          if (this.disposed) return;
+          // At most one request in flight; coalesce edits into one trailing update.
+          if (this.refreshing) { this.pending = true; return; }
           const request = ++this.request;
+          this.refreshing = true;
           try {
             const result = await this.$api.post(`${this.endpoints.field}/preview`, { content: this.values });
             if (request === this.request) { this.current = result; this.error = ""; }
           } catch (_) {
             if (request === this.request) this.error = this.nl ? "Het voorbeeld kon niet worden bijgewerkt." : "The preview could not be updated.";
+          } finally {
+            this.refreshing = false;
+            if (this.pending) { this.pending = false; this.refresh(); }
           }
         },
         async suggest() {
@@ -236,7 +253,7 @@ panel.plugin("timfeskens/seo", {
             this.nl ? "Voorbeeld van de websitestandaarden met de homepagina als voorbeeld. Eigen SEO-instellingen van pagina’s hebben voorrang op de website. " : "Site defaults using the homepage as an example. Page-specific SEO settings take precedence on the website. ",
             h("a", { attrs: { href: meta.homePanelUrl } }, this.nl ? "SEO van de homepagina bewerken" : "Edit homepage SEO"),
           ]) : null,
-          h("div", { class: "tf-seo-previews" }, [
+          h("div", { class: "tf-seo-previews", attrs: { "aria-busy": String(this.refreshing) } }, [
             card("Google", [
               h("p", { class: "tf-seo-url" }, meta.canonical),
               h("p", { class: "tf-seo-title" }, meta.title),

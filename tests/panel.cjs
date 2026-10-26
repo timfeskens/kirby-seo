@@ -29,13 +29,16 @@ const server = http.createServer((req, res) => {
     }
     Vue.component('k-field', {render(h) { return h('div', this.$slots.default); }});
     Vue.component('k-button', {props: ['disabled'], render(h) {return h('button', {attrs: {disabled: this.disabled}, on: {click: () => this.$emit('click')}}, this.$slots.default); }});
-    window.calls = [];
+     window.calls = [];
+     window.delays = {};
+     window.ahrefsResult = null;
     const form = Vue.observable({changes: {metatitle: 'First', metadescription: 'Description'}});
     window.form = form;
     Vue.prototype.$panel = {translation: {code: 'nl'}, content: {version: () => form.changes}};
     Vue.prototype.$api = {async post(url, data) {
-       window.calls.push({url, data});
-       if (url.endsWith('/data/ahrefs')) return {status: 'connected', metrics: {org_keywords: 7, org_traffic: 42}, date: '2026-10-25'};
+        window.calls.push({url, data});
+        if (window.delays[url]) await new Promise(resolve => {window.delays[url].push(resolve);});
+        if (url.endsWith('/data/ahrefs')) return window.ahrefsResult || {status: 'connected', metrics: {org_keywords: 7, org_traffic: 42}, date: '2026-10-25'};
        if (url.endsWith('/data/searchConsole')) return {status: 'connected', property: 'sc-domain:example.test', startDate: '2026-09-26', endDate: '2026-10-23', rows: Array.from({length: 12}, (_, i) => ({query: 'cake <script>' + i, clicks: i, impressions: i * 10, ctr: .1, position: i + 1}))};
       if (url.endsWith('/suggest')) return {title: 'Suggestion', description: 'Review me'};
       const title = data.content.metatitle || 'Default';
@@ -77,6 +80,26 @@ const server = http.createServer((req, res) => {
     assert.equal(await queries.locator('tbody tr').count(), 12, 'All queries available');
     assert.equal(await page.getByRole('region', {name: 'Ahrefs', exact: true}).locator('dd').last().innerText(), '42', 'Ahrefs metrics render');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Analytics do not overflow mobile');
+    assert.equal(await queries.locator('.tf-seo-metrics dd').first().innerText(), '66', 'GSC summary includes all returned queries');
+    await requestEfficiency(page);
+    const ahrefs = page.getByRole('region', {name: 'Ahrefs', exact: true});
+    await page.evaluate(() => {
+      window.delays['pages/test/fields/seoanalytics/data/ahrefs'] = [];
+      window.app.$children[1].load('ahrefs');
+    });
+    await ahrefs.getByRole('status', {name: 'Rapporten laden'}).waitFor();
+    await page.evaluate(() => {
+      window.ahrefsResult = {status: 'connected', mode: 'free', metrics: {domain_rating: 5}};
+      window.delays['pages/test/fields/seoanalytics/data/ahrefs'].shift()();
+    });
+    await ahrefs.getByRole('link', {name: 'Domain Rating by Ahrefs', exact: true}).waitFor();
+    assert.equal(await ahrefs.locator('dd').innerText(), '5', 'Free rating displayed');
+    await page.evaluate(() => {
+      delete window.delays['pages/test/fields/seoanalytics/data/ahrefs'];
+      window.ahrefsResult = {status: 'credentials', mode: 'free'};
+      window.app.$children[1].load('ahrefs');
+    });
+    await ahrefs.getByRole('link', {name: 'Gratis API-sleutel aanmaken'}).waitFor();
     assert.deepEqual(errors, [], 'No browser errors');
     await realPanel(browser);
     await realPanel(browser, true);
@@ -86,6 +109,30 @@ const server = http.createServer((req, res) => {
     server.close();
   }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
+
+async function requestEfficiency(page) {
+  const endpoint = 'pages/test/fields/seopreview/preview';
+  await page.waitForTimeout(250);
+  const count = await page.evaluate(url => window.calls.filter(call => call.url === url).length, endpoint);
+  await page.evaluate(() => {window.form.changes = {...window.form.changes, unrelated: 'No SEO change'};});
+  await page.waitForTimeout(250);
+  assert.equal(await page.evaluate(url => window.calls.filter(call => call.url === url).length, endpoint), count, 'Unrelated fields do not request previews');
+  await page.evaluate(url => {
+    window.delays[url] = [];
+    window.form.changes = {...window.form.changes, metatitle: 'Slow response'};
+  }, endpoint);
+  await page.waitForFunction(url => window.delays[url].length === 1, endpoint);
+  await page.evaluate(() => {window.form.changes = {...window.form.changes, metatitle: 'Latest response'};});
+  await page.waitForTimeout(250);
+  assert.equal(await page.evaluate(url => window.calls.filter(call => call.url === url).length, endpoint), count + 1, 'Only one preview request is in flight');
+  await page.evaluate(url => window.delays[url].shift()(), endpoint);
+  await page.waitForFunction(url => window.delays[url].length === 1, endpoint);
+  assert.equal(await page.getByText('Slow response', {exact: true}).count(), 0, 'Stale response is not rendered');
+  await page.evaluate(url => window.delays[url].shift()(), endpoint);
+  await page.getByRole('region', {name: 'Google', exact: true}).getByText('Latest response', {exact: true}).waitFor();
+  assert.equal(await page.evaluate(url => window.calls.filter(call => call.url === url).length, endpoint), count + 2, 'One trailing request uses latest input');
+  await page.evaluate(url => {delete window.delays[url];}, endpoint);
+}
 
 async function realPanel(browser, analytics = false) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'kirby-seo-panel-'));
@@ -184,6 +231,7 @@ async function realPanel(browser, analytics = false) {
     assert.match(await page.locator('select[name="robotsindex"] option[value="default"]').innerText(), /Overnemen/, 'Page robots retain inheritance');
     assert.equal(await page.getByRole('heading', {name: 'Sociale profielen', exact: true}).count(), 0, 'Profiles only on site');
     await page.getByRole('heading', {name: 'Geavanceerd en overerving', exact: true}).waitFor();
+    assert.equal(await page.locator('input[name="canonicalurl"]').count(), 0, 'Canonical override has no Panel control');
     await responsiveLayout(page, 'page');
     assert.equal(await page.locator('input[name="usetitletemplate"]').isChecked(), true, 'Page title pattern enabled by default');
     assert.equal(await page.locator('input[name="useogtemplate"]').isChecked(), true, 'Page social pattern enabled by default');

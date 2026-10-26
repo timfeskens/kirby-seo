@@ -38,7 +38,8 @@ counter. The obsolete archive control is no longer shown, but existing
 The site tab is **Global SEO settings** (Dutch: **Globale SEO-instellingen**),
 while page tabs describe per-page overrides. Separate sections group search
 engines, social sharing, robots and social profiles; pages instead have an
-advanced/inheritance section for canonical URLs and child-page defaults.
+advanced/inheritance section for child-page defaults. Canonical overrides are
+configured in PHP, not edited in the Panel.
 Root robots selectors offer **Automatic / Allow / Disallow**, with no misleading
 inheritance choice. Page selectors retain **Inherit / automatic**. Automatic at
 the root uses the plugin's safe defaults, not a parent site's settings.
@@ -114,6 +115,21 @@ request hostnames. A canonical base may include an installation subdirectory. Fo
 multilingual domains, supply a map, e.g. `['nl' => 'https://example.nl', 'en' =>
 'https://example.com']`; Kirby still supplies language paths and translated slugs.
 
+For content whose original lives elsewhere, set `canonicalUrl` inside
+`timfeskens.seo`. A callback can return a URL per page/language, or `null` to keep
+the normal canonical (including any migrated saved override):
+
+```php
+'canonicalUrl' => static function (\Kirby\Cms\Page $page, ?string $language): ?string {
+    return $page->id() === 'syndicated-article' ? 'https://original.example/article' : null;
+},
+```
+
+A fixed HTTP(S) string is also accepted, but applies to **every page**. Config
+takes precedence over legacy saved `canonicalUrl` content; legacy values remain
+supported without rewriting content. Invalid URLs fall back to the natural page
+canonical. Pages canonicalized elsewhere are omitted from the sitemap.
+
 Manage indexing in the Panel's global and per-page robots settings. Global
 **Indexing → Disallow** applies by default; an explicit page setting can override
 it. The plugin does not add an environment-level indexing override or blanket
@@ -147,7 +163,7 @@ Description fields display their configured/inherited fallbacks; robots and card
 selectors start at automatic and both page pattern toggles start enabled.
 Existing overrides are preserved. Unchanged inherited page text is not pinned as
 a page override when saving. Fields without a meaningful default (images, profile
-URLs, canonical overrides and authors) remain empty rather than inventing content.
+URLs and authors) remain empty rather than inventing content.
 
 ### Migrating from tobimori/kirby-seo
 
@@ -172,38 +188,60 @@ No content migration or bulk rewrite runs automatically.
 ## Optional Google Search Console
 
 Disabled by default. When enabled, the SEO sidebar on both Site and page views
-shows search queries with clicks, impressions, CTR and average position. The top
+shows search queries with clicks, impressions, CTR and average position. The
+reports section sits **below the Google/Facebook/X previews** and is not a preview
+of search results. Its summary covers returned queries, not guaranteed property
+totals: Google may omit anonymized queries. Loading reports show accessible
+skeleton placeholders; live previews keep their existing content while updating.
+Only SEO-relevant edits trigger preview requests; requests are throttled,
+single-flight and coalesced to the latest values, with stale responses ignored.
+The top
 10 are shown first; sort by any metric or show all returned rows (up to Google's
 25,000-row response limit; this is not an exhaustive export). Page queries filter
 by **exact canonical URL**, while Site queries cover the selected property. Data
 covers 28 days ending three days ago to avoid incomplete recent data and is cached
 for 24 hours. Empty reports and provider failures do not affect public metadata.
 
-1. Enable the **Google Search Console API** in your Google Cloud project.
-2. Configure the OAuth consent screen and a **Web application** OAuth client.
+1. Select or create a project in the [Google Cloud Console](https://console.cloud.google.com/projectselector2),
+   then enable the **Google Search Console API** in the
+   [API Library](https://console.cloud.google.com/apis/library/searchconsole.googleapis.com).
+   See Google's [API setup guide](https://developers.google.com/webmaster-tools/v1/prereqs).
+2. Configure the [OAuth consent screen](https://console.cloud.google.com/auth/overview)
+   and create a **Web application** OAuth client under
+   [Clients](https://console.cloud.google.com/auth/clients).
+   Follow Google's [web-server OAuth guide](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred)
+   for client creation and redirect URI rules.
    Register `https://example.com/__seo/gsc/callback` as an exact redirect URI
    (including any installation subdirectory). Local development needs its own URI.
-3. Configure credentials through your environment and a writable token file path
+3. Configure direct PHP values in a private Kirby config file (see
+   [local and Ansible/Vault configuration](#private-configuration-localhost-and-ansible-vault)
+   and Kirby's [configuration guide](https://getkirby.com/docs/guide/configuration)),
+   with a writable token file path
    in an **existing private directory outside the document root and Git**:
 
 ```php
 'searchConsole' => [
     'enabled' => true,
-    'credentials' => ['web' => [
-        'client_id' => getenv('GOOGLE_SEARCH_CONSOLE_CLIENT_ID'),
-        'client_secret' => getenv('GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET'),
-    ]],
-    'tokenPath' => getenv('GOOGLE_SEARCH_CONSOLE_TOKEN_PATH'),
+    'credentials' => [
+        'client_id' => 'your-client-id.apps.googleusercontent.com',
+        'client_secret' => 'your-client-secret',
+    ],
+    'tokenPath' => '/absolute/private/path/google-search-console.json',
 ],
 ```
 
 Downloaded Google `web` credentials arrays are also accepted. Do not commit the
 downloaded JSON. Configure Kirby's trusted `url`; the callback is based on the
-current site URL, not `canonicalBase`. For Docker, persist/mount private token
+current site URL, not `canonicalBase`. For Docker, use a persistent
+[volume](https://docs.docker.com/engine/storage/volumes/) or
+[bind mount](https://docs.docker.com/engine/storage/bind-mounts/) for private token
 storage outside the web root; the plugin does not create deployment volumes.
 
 4. As a Panel administrator, click **Connect Google**, grant read-only access,
-   then choose an accessible Search Console property. Other editors with update
+   then choose an accessible property from [Google Search Console](https://search.google.com/search-console).
+   If needed, [add and verify your property](https://support.google.com/webmasters/answer/34592)
+   and check [property access permissions](https://support.google.com/webmasters/answer/7687615)
+   first. Other editors with update
    permission can read reports, but cannot change the shared connection. Change
    property, reconnect, or disconnect in the sidebar. Optional server config
    `searchConsole.property` pins a property and takes precedence over Panel selection.
@@ -211,24 +249,48 @@ storage outside the web root; the plugin does not create deployment volumes.
 OAuth uses one-time, user-bound, expiring state and PKCE. Refresh tokens stay on the
 server in an atomically written `0600` file. Credentials/tokens are never Panel
 props or content fields. Disconnect deletes the local connection; to revoke the
-Google grant itself, remove it in your Google account's third-party access settings.
+Google grant itself, remove it in your
+[Google account's third-party access settings](https://myaccount.google.com/connections).
 Google OAuth apps in external **Testing** mode can have short-lived refresh tokens;
-configure the consent application's publishing status appropriately.
+configure the consent application's publishing status appropriately; see Google's
+[refresh-token expiration rules](https://developers.google.com/identity/protocols/oauth2#expiration).
 
 ## Optional Ahrefs
 
-Disabled independently by default. Enable with an Ahrefs API v3 key whose account
-has access and quota for the Site Explorer metrics endpoint:
+Disabled independently by default. Set it up as follows:
+
+1. The default **free** mode uses [Domain Rating free](https://docs.ahrefs.com/en/api/reference/public/get-domain-rating-free).
+   It requires a **free API v3 key**, but no paid subscription. Without a key the
+   Panel shows setup guidance; Ahrefs does not support anonymous API requests.
+2. Sign in to [Ahrefs](https://app.ahrefs.com/) and create a key in your workspace's
+   API key settings. Follow the official
+   [API key creation and management guide](https://docs.ahrefs.com/en/api/docs/api-keys-creation-and-management).
+   Keep the key private; do not put it in content, browser code or Git.
+3. Set the key directly in a private Kirby config file, or render it with Ansible
+   from encrypted Vault variables (see
+   [configuration examples](#private-configuration-localhost-and-ansible-vault)):
 
 ```php
 'ahrefs' => [
     'enabled' => true,
-    'apiKey' => getenv('AHREFS_API_KEY'),
+    'apiKey' => 'your-ahrefs-api-key',
+    'mode' => 'free', // default; explicitly opt into 'paid' for Site Explorer
 ],
 ```
 
-The Panel shows organic keywords, top-three keywords, estimated monthly organic
-traffic and paid keywords. Ahrefs estimates are **not** measured visitor analytics.
+4. Open your site's Panel **Global SEO settings** tab to view the reports, then
+   compare the target site in [Ahrefs Site Explorer](https://app.ahrefs.com/site-explorer).
+   There is no separate Connect button: the plugin authenticates using the server-side key.
+
+Free mode shows **Domain Rating by Ahrefs**, a domain-wide backlink rating from
+0–100, with the [required attribution](https://ahrefs.com/legal/domain-rating-license).
+It is not a Google ranking score or page traffic. One domain-level cache is shared
+between site and page reports for 24 hours.
+
+Explicit `'mode' => 'paid'` shows organic keywords, top-three keywords, estimated
+monthly organic traffic and paid keywords. Check [API access and limits](https://docs.ahrefs.com/en/api/docs/introduction)
+and your subscription first: this mode can consume paid units and is never chosen
+automatically. Ahrefs estimates are **not** measured visitor analytics.
 Page scope is the exact canonical URL; Site scope is its canonical homepage prefix
 (preserving subdirectory installations). Results use yesterday's data and are
 cached for 24 hours to avoid repeated API-unit charges. API availability and cost
@@ -240,6 +302,70 @@ authenticated Panel requests, never during public page rendering. Non-indexable
 pages are excluded from per-page requests. Site-level reports still cover the
 selected external property/site. No credentials are bundled and neither integration
 is automatically connected by installation.
+
+### Private configuration: localhost and Ansible Vault
+
+The plugin reads Kirby options directly; environment variables are **not required**.
+Keep the snippets above inside `timfeskens.seo` in your config array. Locally, use
+an ignored `site/config/config.localhost.php` (or the filename matching your local
+hostname; see [domain-specific configuration](https://getkirby.com/docs/guide/configuration#domain-specific-config-files)):
+
+```php
+<?php
+return [
+    'timfeskens.seo' => [
+        'searchConsole' => [
+            'enabled' => true,
+            'credentials' => [
+                'client_id' => 'your-client-id.apps.googleusercontent.com',
+                'client_secret' => 'your-client-secret',
+            ],
+            'tokenPath' => '/absolute/private/path/google-search-console.json',
+        ],
+        'ahrefs' => ['enabled' => false],
+    ],
+];
+```
+
+For deployment, put non-secret settings in normal Ansible variables and credentials
+in [Ansible Vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html):
+
+```yaml
+# Regular variables
+seo_runtime_config:
+  timfeskens.seo:
+    searchConsole:
+      enabled: true
+      credentials:
+        client_id: '{{ vault_seo_google_client_id }}'
+        client_secret: '{{ vault_seo_google_client_secret }}'
+      tokenPath: /run/seo-private/google-search-console.json
+    ahrefs:
+      enabled: false
+      # To enable later, supply apiKey: '{{ vault_seo_ahrefs_api_key }}'.
+
+# Inside encrypted vault.yml (never commit the plaintext form)
+vault_seo_google_client_id: your-client-id.apps.googleusercontent.com
+vault_seo_google_client_secret: your-client-secret
+```
+
+Use an [Ansible template](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/template_module.html)
+to render a protected domain-specific PHP config file. JSON inside a PHP nowdoc
+avoids unsafe interpolation of quotes, backslashes and dollar signs in secrets:
+
+```jinja2
+<?php
+return json_decode(<<<'KIRBY_CONFIG_JSON'
+{{ seo_runtime_config | to_nice_json }}
+KIRBY_CONFIG_JSON, true, 512, JSON_THROW_ON_ERROR);
+```
+
+Give the generated file mode `0600` and the PHP application's owner; set the
+template task to `no_log: true` and `diff: false`. Keep the Vault password in your
+password manager, not Git. Mount the private config read-only into containers and
+give PHP a writable persistent token directory outside the web root. Each site
+and environment needs its own token file. The Google connection writes that file
+at runtime: **do not template, overwrite or commit OAuth tokens**.
 
 ## Automatic XML sitemap
 

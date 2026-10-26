@@ -47,6 +47,20 @@ final class Seo
 
     public static function canonical(Page $page, ?string $language = null): string
     {
+        $override = self::option('canonicalUrl');
+        $override = is_callable($override) ? $override($page, $language) : $override;
+        // Preserve migrated explicit content overrides, without exposing a Panel
+        // control for new ones. Config takes precedence when supplied.
+        $override ??= self::field($page, 'canonicalUrl', $language)->value();
+        if (is_string($override) && filter_var($override, FILTER_VALIDATE_URL) && in_array(parse_url($override, PHP_URL_SCHEME), ['http', 'https'], true)) {
+            return $override;
+        }
+        return self::canonicalDefault($page, $language);
+    }
+
+    /** Natural page canonical, before explicit overrides (also used by sitemap). */
+    public static function canonicalDefault(Page $page, ?string $language = null): string
+    {
         $url = $page->url($language);
         $base = self::option('canonicalBase');
         if (is_array($base)) {
@@ -142,10 +156,6 @@ final class Seo
         }
         $creator = trim((string)$get('twitterAuthor')->value());
         $canonical = self::canonical($page, $language);
-        $custom = (string)$get('canonicalUrl')->value();
-        if (filter_var($custom, FILTER_VALIDATE_URL) && in_array(parse_url($custom, PHP_URL_SCHEME), ['http', 'https'], true)) {
-            $canonical = $custom;
-        }
         return [
             'title' => $metaTitle,
             'canonical' => $canonical,

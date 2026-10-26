@@ -25,6 +25,7 @@ spl_autoload_register(static function (string $class): void {
 Kirby::plugin('timfeskens/seo', [
     'options' => [
         'canonicalBase' => null,
+        'canonicalUrl' => null,
         'locale' => 'en_US',
         'description' => '',
         'sitemap' => true,
@@ -36,7 +37,7 @@ Kirby::plugin('timfeskens/seo', [
         'ai' => ['enabled' => false, 'source' => null, 'provider' => null],
         'indexnow' => ['enabled' => false, 'key' => null],
         'searchConsole' => ['enabled' => false, 'credentials' => null, 'tokenPath' => null, 'property' => null],
-        'ahrefs' => ['enabled' => false, 'apiKey' => null],
+        'ahrefs' => ['enabled' => false, 'apiKey' => null, 'mode' => 'free'],
     ],
     'snippets' => ['timfeskens-seo/meta' => __DIR__ . '/snippets/meta.php'],
     'blueprints' => [

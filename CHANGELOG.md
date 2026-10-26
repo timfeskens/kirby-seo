@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.15 — 2026-10-26
+
+- Simplify the README into numbered basic SEO, Search Console and Ahrefs setup
+  steps, with a short troubleshooting table explaining Google API activation.
+- Move advanced configuration, migration compatibility and deployment details to
+  `docs/configuration.md`. No runtime or stored-content changes.
+
 ## 0.1.14 — 2026-10-26
 
 - Defer preview metadata until after the Panel form loads instead of computing it

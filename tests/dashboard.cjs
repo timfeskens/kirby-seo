@@ -70,12 +70,18 @@ const {spawn} = require('node:child_process');
     }
     await page.getByRole('button', {name: 'Property kiezen', exact: true}).click();
     await page.getByLabel('Search Console-property', {exact: true}).selectOption('sc-domain:example.test');
-    await page.getByRole('button', {name: 'Property opslaan', exact: true}).click();
+    await Promise.all([
+      page.waitForNavigation({waitUntil: 'load'}),
+      page.getByRole('button', {name: 'Property opslaan', exact: true}).click(),
+    ]);
     await page.getByRole('heading', {name: 'Zoekopdrachten', exact: true}).waitFor();
     await page.request.get(`${base}/fixture/error`);
     await page.reload();
     await page.getByRole('status').filter({hasText: 'Google API-limiet'}).waitFor();
-    await page.getByRole('button', {name: 'Ontkoppelen', exact: true}).click();
+    await Promise.all([
+      page.waitForNavigation({waitUntil: 'load'}),
+      page.getByRole('button', {name: 'Ontkoppelen', exact: true}).click(),
+    ]);
     await page.getByRole('button', {name: 'Koppelen met Google', exact: true}).waitFor();
     let authorization;
     await page.route('https://accounts.google.com/**', route => {authorization = route.request().url(); return route.fulfill({body: 'Fictional OAuth'});});

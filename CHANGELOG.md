@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.16 — 2026-10-29
+
+- Add admin-only **SEO** and **Verkeer** sidebar areas without requiring a site
+  blueprint entry or the legacy Traffic plugin.
+- Preserve existing site SEO content and serialization in the dedicated global
+  editor, with explicit save, live previews and server-side field validation.
+- Add Search Console summary cards, daily charts, 7/30/90-day filters and top
+  query/page/country/device tables with independently queried property totals.
+- Make Search Console available automatically from credentials and tokenPath;
+  remove its redundant enable toggle. Reuse existing private OAuth tokens and
+  callback, with dashboard-aware return destinations and safe error states.
+- Document configuration, migration from the site tab, data lag/privacy limits
+  and legacy Traffic coexistence; add standalone sidebar/browser regressions.
+
 ## 0.1.15 — 2026-10-26
 
 - Simplify the README into numbered basic SEO, Search Console and Ahrefs setup

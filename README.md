@@ -6,13 +6,17 @@ still requires a license for public use.
 
 ## What’s included
 
-- Global defaults and page-specific SEO settings
+- Global defaults in the **SEO** sidebar and page-specific SEO settings
 - Live Google, Facebook and Twitter/X previews
 - Titles, descriptions, canonical URLs, social images and structured data
 - Automatic XML sitemap, `robots.txt` and multilingual alternates
-- Optional Google Search Console and Ahrefs reports in the Panel
+- Google Search Console dashboard in the **Verkeer** sidebar, with charts and breakdowns
+- Optional page-specific Google Search Console and Ahrefs reports
 
-External integrations are **disabled by default**. Basic SEO works without them.
+External integrations are inactive without configuration. Search Console becomes
+available automatically when Google credentials and a private token path are
+configured; other integrations retain their explicit opt-in. Basic SEO works
+without external services. The separate legacy Traffic plugin is not required.
 
 ## Set up basic SEO
 
@@ -29,16 +33,15 @@ Composer installs the plugin in `site/plugins/timfeskens-seo`. Commit your
 For a manual installation, download a [tagged release](https://github.com/timfeskens/kirby-seo/releases)
 and place its contents in `site/plugins/timfeskens-seo`.
 
-### 2. Add the Panel tabs
+### 2. Open the sidebar and add page tabs
 
-In `site/blueprints/site.yml`, add the global SEO tab:
-
-```yaml
-tabs:
-  content:
-    # Your existing sections or fields
-  seo: tabs/seo-site
-```
+The plugin automatically adds **SEO** (`/panel/seo`) and **Verkeer**
+(`/panel/traffic`) to the sidebar for administrators. Global defaults are edited
+in **SEO**; no change to `site/blueprints/site.yml` is needed. Existing sites can
+remove `seo: tabs/seo-site` from that file: saved SEO values stay in the same site
+content fields and are not moved or rewritten. The blueprint remains available
+for backward compatibility, but keeping it shows a second editor for the same
+values.
 
 In each page blueprint that needs SEO settings, add the page SEO tab:
 
@@ -85,8 +88,8 @@ Use your actual domain. For multiple languages or custom canonical URLs, see
 
 ### 5. Set your defaults and check the output
 
-1. Open **Global SEO settings** in the Panel and set your title pattern,
-   description, social image and social profiles.
+1. Open **SEO** in the sidebar and set your title pattern,
+   description, social image and social profiles, then choose **Save SEO settings**.
 2. Open a page’s **SEO** tab to override those defaults where needed.
 3. Check the page source for one title and canonical URL, then visit `/sitemap.xml`
    and `/robots.txt`. Remove competing sitemap/robots routes if necessary.
@@ -109,7 +112,11 @@ The sitemap updates automatically; no cron job or regeneration is needed.
 
 ## Set up Google Search Console (optional)
 
-Shows queries, clicks, impressions, CTR and average position below the previews.
+The **Verkeer** sidebar dashboard shows property-wide clicks, impressions, CTR
+and average position, with four daily charts and tables for queries, pages,
+countries, devices and daily metrics. It is part of **this SEO plugin**, not the
+legacy Traffic plugin, and works without that plugin installed. Page SEO tabs
+also show queries for the page's exact canonical URL below the previews.
 
 ### 1. Enable the Google API
 
@@ -138,7 +145,6 @@ add:
 return [
     'timfeskens.seo' => [
         'searchConsole' => [
-            'enabled' => true,
             'credentials' => [
                 'client_id' => 'your-client-id.apps.googleusercontent.com',
                 'client_secret' => 'your-client-secret',
@@ -154,16 +160,32 @@ make it writable by PHP. The plugin creates the token file when you connect.
 In Docker, use persistent storage. Each website/environment needs its own token
 file. Never commit credentials or tokens.
 
+No enable switch is needed: adding both client credentials and `tokenPath`
+automatically makes Search Console available. Remove those credentials to stop
+using the integration. The dashboard only contacts Google after configuration
+and connection; simply installing the plugin does not send data to Google.
+
 ### 4. Connect in the Panel
 
-As an administrator, open **Global SEO settings**, click **Connect Google**, grant
+As an administrator, open **Verkeer**, click **Koppelen met Google**, grant
 read-only access and select the intended Search Console property. Your Google
 account must have [access to that property](https://support.google.com/webmasters/answer/7687615).
 Repeat this connection step for each website.
 
-Reports cover 28 days ending three days ago and are cached for 24 hours. Page
-reports use the exact canonical URL; global reports cover the selected property.
-Query summaries can omit anonymized queries and are not guaranteed property totals.
+Dashboard periods are 7, 30 or 90 inclusive days, ending three days ago in Google's
+Pacific timezone. Finalized organic web-search data is cached for one hour;
+**Vernieuwen** reloads without bypassing that cache. Each uncached report makes
+six API queries. Summary totals are queried independently from privacy-filtered
+breakdowns; CTR and position come from Google, not averages of visible rows.
+Tables show at most 100 top rows, not a complete export. Missing days have zero
+clicks/impressions and no position. Google can omit anonymized queries.
+
+Page reports retain their 28-day window and 24-hour cache and use the exact
+canonical URL. Both views share the same account, property and token file;
+disconnecting in one disconnects the other. These metrics describe search
+results, not tracked page views, and will not necessarily match the legacy
+traffic report. Update the legacy Traffic plugin to v0.1.1+ when using both:
+its sidebar entry moves to **Verkeer (deprecated)** at `/panel/traffic-deprecated`.
 
 ### Troubleshooting
 

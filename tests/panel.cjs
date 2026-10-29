@@ -198,7 +198,7 @@ async function realPanel(browser, analytics = false) {
     assert.equal(previewRequests, 1, 'Initial Panel preview uses one deferred metadata request');
     if (analytics) {
       await page.getByRole('region', {name: 'Ahrefs', exact: true}).getByText('42', {exact: true}).waitFor();
-      await page.getByRole('region', {name: 'Google Search Console', exact: true}).getByText(/Stel de inloggegevens/).waitFor();
+      await page.getByRole('region', {name: 'Google Search Console', exact: true}).getByText(/Verbind je Google-account/).waitFor();
       await page.setViewportSize({width: 390, height: 844});
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'Real analytics Panel fits mobile');
       assert.deepEqual(errors, [], 'Real enabled analytics endpoints work');

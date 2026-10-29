@@ -277,7 +277,6 @@ mkdir($private, 0700, true);
 $tokenPath = $private . '/tokens.json';
 $requests = [];
 $options = [
-    'timfeskens.seo.searchConsole.enabled' => true,
     'timfeskens.seo.searchConsole.credentials' => ['web' => ['client_id' => 'test-client', 'client_secret' => 'test-secret']],
     'timfeskens.seo.searchConsole.tokenPath' => $tokenPath,
     'timfeskens.seo.ahrefs.enabled' => true,
@@ -295,6 +294,7 @@ $options = [
 try { Analytics::data($page, 'ahrefs'); check(false, 'Anonymous analytics rejected'); }
 catch (RuntimeException $e) { check($e->getMessage() === 'Not allowed.', 'Anonymous analytics rejected'); }
 $kirby->impersonate('kirby');
+check(SearchConsole::configured() && in_array('searchConsole', Analytics::providers(), true), 'Credentials and tokenPath activate Search Console without a toggle');
 check(Analytics::data($page, 'searchConsole')['status'] === 'disconnected', 'Enabled GSC starts disconnected');
 $auth = SearchConsole::connect();
 parse_str((string)parse_url($auth, PHP_URL_QUERY), $authQuery);
@@ -336,6 +336,21 @@ check(!str_contains(json_encode($result), 'test-secret') && !str_contains(json_e
 $siteResult = Analytics::data($kirby->site(), 'searchConsole');
 $siteQuery = json_decode(end($requests)[1]['data'], true);
 check(!isset($siteQuery['dimensionFilterGroups']), 'Site query is property-wide');
+$before = count($requests);
+$report = SearchConsole::report(7);
+check($report['status'] === 'connected' && count($report['daily']) === 7, 'Sidebar dashboard returns inclusive daily series');
+check(count($requests) === $before + 6 && $report['totals']['clicks'] === 5.0, 'Property totals queried independently of breakdowns');
+$dashboardBody = json_decode($requests[$before][1]['data'], true);
+check($dashboardBody['dimensions'] === [] && $dashboardBody['dataState'] === 'final' && $dashboardBody['type'] === 'web', 'Dashboard requests finalized web totals without dimensions');
+check($report['endDate'] === (new DateTimeImmutable('today', new DateTimeZone('America/Los_Angeles')))->modify('-3 days')->format('Y-m-d'), 'Dashboard uses Pacific reporting dates');
+$before = count($requests);
+SearchConsole::report(7);
+check(count($requests) === $before, 'Dashboard cache avoids repeated Google requests');
+check(!str_contains(json_encode($report), 'test-access') && !str_contains(json_encode($report), 'test-secret'), 'Dashboard output contains no secrets');
+$kirby->impersonate(null);
+try { SearchConsole::report(); check(false, 'Dashboard must deny anonymous access'); }
+catch (RuntimeException) { check(true, 'Dashboard denies anonymous access'); }
+$kirby->impersonate('kirby');
 $result = Analytics::data($page, 'ahrefs');
 check($result['metrics'] === ['org_keywords' => 7, 'org_traffic' => 42], 'Ahrefs response allowlists metrics');
 $ahrefsRequest = end($requests);
@@ -369,12 +384,13 @@ check($failureResult === ['status' => 'error', 'reason' => 'apiDisabled', 'admin
 SearchConsole::disconnect();
 check(!is_file($tokenPath), 'Disconnect deletes private tokens');
 $kirby->session()->commit();
-[$kirby, $page] = fixture(array_replace($options, ['timfeskens.seo.searchConsole.enabled' => false, 'timfeskens.seo.ahrefs.enabled' => false]));
+[$kirby, $page] = fixture(array_replace($options, ['timfeskens.seo.searchConsole.credentials' => null, 'timfeskens.seo.ahrefs.enabled' => false]));
 $kirby->impersonate('kirby');
 $before = count($requests);
 try { Analytics::data($page, 'ahrefs'); check(false, 'Disabled provider inaccessible'); }
 catch (RuntimeException) { check(true, 'Disabled provider inaccessible'); }
 check(count($requests) === $before, 'Disabled integrations make no requests');
+check(SearchConsole::report(123) === ['days' => 30, 'status' => 'credentials', 'admin' => true], 'Unconfigured dashboard shows setup and normalizes period');
 rmdir($private);
 
 [$kirby, $page] = fixture([
@@ -476,6 +492,17 @@ check($page->metaTitle()->isEmpty(), 'AI never writes metadata');
 [$kirby, $page] = fixture();
 $kirby->call('robots.txt');
 check($kirby->response()->header('X-Robots-Tag') === null, 'No configuration-level robots header overrides Panel settings');
+
+[$kirby, $page] = fixture(siteContent: ['metaDescription' => 'Existing global text', 'metaTemplate' => '{{ title }} | {{ site.title }}', 'robotsIndex' => 'false', 'email' => 'preserve@example.test']);
+try { \TimFeskens\Seo\GlobalSettings::data(); check(false, 'Global sidebar must reject anonymous access'); }
+catch (\Kirby\Exception\PermissionException) { check(true, 'Global sidebar rejects anonymous access'); }
+$kirby->impersonate('kirby');
+$global = \TimFeskens\Seo\GlobalSettings::data();
+check($global['value']['metadescription'] === 'Existing global text', 'Sidebar reads existing SEO content without migration');
+check($global['value']['metatemplate'] === '{{ title }} | {{ site.title }}' && $global['value']['robotsindex'] === 'false', 'Sidebar preserves template strings and robots selections');
+check(!isset($global['fields']['email']) && isset($global['fields']['ogimage']), 'Sidebar exposes only SEO fields, including existing file selectors');
+check($global['fields']['seopreview']['endpoints']['field'] === 'seo/global/fields/seopreview', 'Sidebar preview uses dedicated authenticated field endpoint');
+check($kirby->site()->email()->value() === 'preserve@example.test', 'Rendering sidebar never changes unrelated content');
 
 $kirby = new App([
     'roots' => ['index' => sys_get_temp_dir() . '/kirby-seo-multilang-' . getmypid()],

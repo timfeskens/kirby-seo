@@ -22,7 +22,7 @@ final class Analytics
 
     public static function providers(): array
     {
-        return array_values(array_filter(['searchConsole', 'ahrefs'], static fn ($name) => Seo::option($name . '.enabled', false) === true));
+        return array_values(array_filter(['searchConsole', 'ahrefs'], static fn ($name) => $name === 'searchConsole' ? SearchConsole::configured() : Seo::option($name . '.enabled', false) === true));
     }
 
     /** Fixed endpoints only; redirects are forbidden so bearer tokens stay at their origin. */

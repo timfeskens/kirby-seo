@@ -12,5 +12,6 @@
 - Add migration/serialization regression tests when changing shared fields.
   Run `composer validate --strict`, `composer lint`, `composer test`,
   `node --check index.js`, and `npm test` before releasing.
-- External integrations must remain optional and disabled by default. Keep
+- External integrations must remain optional and inactive without configuration.
+  Search Console activates from credentials and a private tokenPath, without a toggle. Keep
   credentials server-side and out of Git, content, Panel props and logs.

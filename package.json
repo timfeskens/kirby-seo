@@ -1,6 +1,6 @@
 {
   "name": "@timfeskens/kirby-seo-panel-tests",
   "private": true,
-  "scripts": {"test": "node tests/panel.cjs"},
+  "scripts": {"build": "node scripts/build-panel.mjs", "test": "node tests/panel.cjs && node tests/dashboard.cjs"},
   "devDependencies": {"@playwright/test": "^1.56.0"}
 }

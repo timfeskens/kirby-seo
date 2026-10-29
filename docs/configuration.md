@@ -3,6 +3,29 @@
 Start with the [setup guide](../README.md). All plugin options below belong inside
 `timfeskens.seo` in your Kirby config array.
 
+## Sidebar areas and existing site content
+
+Installation automatically adds admin-only **SEO** (`/panel/seo`) and **Verkeer**
+(`/panel/traffic`) sidebar areas. The global editor uses the same field names,
+stored formats and site content as `tabs/seo-site`, including template variables,
+social profiles, robots selections and file references. Remove the optional
+`seo: tabs/seo-site` entry from the site's blueprint to avoid duplicate editors;
+no content migration is needed. Page SEO tabs are unchanged. The global editor
+validates and serializes with Kirby fields, allows only SEO keys, preserves
+unrelated site fields, respects site update permission and existing edit locks,
+and saves on explicit **Save SEO settings**, not automatically on input.
+
+Search Console configuration consists of `searchConsole.credentials` (either
+the client ID/secret directly or Google's `web` wrapper), `searchConsole.tokenPath`
+and an optional pinned `searchConsole.property`. Credentials and tokenPath make
+the integration available automatically; there is no separate enable option.
+Keep secrets server-side, outside Git and the document root. Connecting from
+Verkeer returns to `/panel/traffic`; connecting from the SEO editor returns to
+`/panel/seo`. Both share the existing `/__seo/gsc/callback` and read-only OAuth
+connection. The sidebar dashboard has a one-hour cache and 7/30/90-day periods;
+page-level query reports retain their existing cache and period. The SEO plugin
+does not depend on the legacy Traffic plugin or collect visitor analytics.
+
 ## URLs and canonical overrides
 
 Configure Kirby’s trusted `url` so generated URLs do not rely on arbitrary request

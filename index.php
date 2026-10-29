@@ -10,6 +10,7 @@ use TimFeskens\Seo\Preview;
 use TimFeskens\Seo\Seo;
 use TimFeskens\Seo\Analytics;
 use TimFeskens\Seo\SearchConsole;
+use TimFeskens\Seo\GlobalSettings;
 
 // Manual installation is supported as well as Composer.
 spl_autoload_register(static function (string $class): void {
@@ -36,9 +37,36 @@ Kirby::plugin('timfeskens/seo', [
         'llms' => ['enabled' => false, 'include' => null, 'markdown' => null],
         'ai' => ['enabled' => false, 'source' => null, 'provider' => null],
         'indexnow' => ['enabled' => false, 'key' => null],
-        'searchConsole' => ['enabled' => false, 'credentials' => null, 'tokenPath' => null, 'property' => null],
+        'searchConsole' => ['credentials' => null, 'tokenPath' => null, 'property' => null],
         'ahrefs' => ['enabled' => false, 'apiKey' => null, 'mode' => 'free'],
     ],
+    'areas' => [
+        'seo' => fn () => [
+            'label' => 'SEO', 'icon' => 'search', 'link' => 'seo',
+            'menu' => kirby()->user()?->isAdmin() === true,
+            'views' => [[
+                'pattern' => 'seo',
+                'action' => fn () => ['component' => 'timfeskens-global-seo-view', 'title' => 'Global SEO settings', 'props' => GlobalSettings::data()],
+            ]],
+        ],
+        'traffic' => fn () => [
+            'label' => 'Verkeer', 'icon' => 'chart', 'link' => 'traffic',
+            'menu' => kirby()->user()?->isAdmin() === true,
+            'views' => [[
+                'pattern' => 'traffic/(:num?)',
+                'action' => fn ($days = '30') => ['component' => 'timfeskens-search-console-view', 'title' => 'Verkeer · Google Search Console', 'props' => ['report' => SearchConsole::report((int)$days)]],
+            ]],
+        ],
+    ],
+    'api' => ['routes' => [
+        ['pattern' => 'seo/search-console/(:alpha)', 'method' => 'POST', 'action' => fn (string $action) => SearchConsole::manage($action)],
+        ['pattern' => 'seo/global', 'method' => 'GET', 'action' => fn () => GlobalSettings::data()],
+        ['pattern' => 'seo/global', 'method' => 'PATCH', 'action' => fn () => GlobalSettings::save((array)kirby()->request()->get('content', []))],
+        ['pattern' => 'seo/global/fields/(:any)/(:all?)', 'method' => 'ALL', 'action' => function (string $field, ?string $path = null) {
+            GlobalSettings::authorize();
+            return $this->fieldApi(GlobalSettings::model(), $field, $path);
+        }],
+    ]],
     'snippets' => ['timfeskens-seo/meta' => __DIR__ . '/snippets/meta.php'],
     'blueprints' => [
         'tabs/seo-site' => __DIR__ . '/blueprints/tabs/site.yml',
@@ -157,7 +185,7 @@ Kirby::plugin('timfeskens/seo', [
     ],
     'routes' => function (): array {
         $routes = [];
-        if (Seo::option('searchConsole.enabled', false) === true) {
+        if (SearchConsole::configured()) {
             $routes[] = ['pattern' => '__seo/gsc/callback', 'method' => 'GET', 'action' => fn () => SearchConsole::callback()];
         }
         if (Seo::option('sitemap', true)) {

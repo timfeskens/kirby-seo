@@ -1,0 +1,3 @@
+.timfeskens-global-seo-view .seo-settings-help { color: var(--color-text-dimmed); font-size: .875rem; line-height: 1.6; margin-bottom: 1rem; }
+.timfeskens-global-seo-view .seo-settings-actions { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin: 1rem 0 2rem; }
+.timfeskens-global-seo-view [role="alert"], .timfeskens-global-seo-view [role="status"] { margin: 1rem 0; padding: 1rem; background: var(--item-color-back); }

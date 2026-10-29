@@ -43,7 +43,8 @@ $kirby = new Kirby\Cms\App([
     'urls' => ['index' => 'http://' . $_SERVER['HTTP_HOST']],
     'options' => [
         'debug' => true, 'panel.install' => false, 'api.allowImpersonation' => true, 'timfeskens.seo.canonicalBase' => 'https://example.test',
-        'timfeskens.seo.searchConsole.enabled' => getenv('SEO_PANEL_ANALYTICS') === '1',
+        'timfeskens.seo.searchConsole.credentials' => getenv('SEO_PANEL_ANALYTICS') === '1' ? ['client_id' => 'fixture', 'client_secret' => 'fixture'] : null,
+        'timfeskens.seo.searchConsole.tokenPath' => $root . '-google.json',
         'timfeskens.seo.ahrefs.enabled' => getenv('SEO_PANEL_ANALYTICS') === '1',
         'timfeskens.seo.ahrefs.apiKey' => 'fixture-only',
         'timfeskens.seo.ahrefs.mode' => 'paid',

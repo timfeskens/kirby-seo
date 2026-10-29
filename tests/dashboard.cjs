@@ -34,8 +34,39 @@ const {spawn} = require('node:child_process');
     await page.getByRole('region', {name: 'Google', exact: true}).waitFor();
     await page.locator('textarea[name="metadescription"]').fill('Updated in sidebar');
     await page.getByRole('region', {name: 'Google', exact: true}).getByText('Updated in sidebar', {exact: true}).waitFor();
-    await page.getByRole('button', {name: 'SEO-instellingen opslaan', exact: true}).click();
-    await page.getByRole('status').filter({hasText: 'SEO-instellingen opgeslagen'}).waitFor();
+    const save = page.getByRole('button', {name: 'Instellingen opslaan', exact: true});
+    const unsaved = page.getByRole('status').filter({hasText: 'Niet-opgeslagen wijzigingen'});
+    await unsaved.waitFor();
+    assert.equal(await save.getAttribute('data-variant'), 'filled');
+    assert.equal(await save.getAttribute('data-theme'), 'positive');
+    for (const width of [1440, 390, 375]) {
+      await page.setViewportSize({width, height: 1000});
+      const settings = await page.locator('.seo-settings-column').first().boundingBox();
+      const previews = await page.locator('.seo-settings-previews').boundingBox();
+      if (width === 1440) {
+        assert.ok(previews.x > settings.x + settings.width, 'Previews in right column');
+        const title = await page.getByRole('heading', {name: 'Globale SEO-instellingen', exact: true}).boundingBox();
+        const button = await save.boundingBox();
+        assert.ok(button.y < title.y + title.height && button.y + button.height > title.y, 'Save shares the title row');
+      } else {
+        assert.ok(previews.y > settings.y + settings.height, 'Columns stack on narrow screens');
+      }
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await page.evaluate(() => window.scrollTo(0, 600));
+      const header = await page.locator('.seo-settings-header').boundingBox();
+      assert.ok(header.y >= 0 && header.y < 100, 'Header remains sticky');
+      if (process.env.SEO_SCREENSHOTS) {
+        fs.mkdirSync(process.env.SEO_SCREENSHOTS, {recursive: true});
+        await page.screenshot({path: path.join(process.env.SEO_SCREENSHOTS, `seo-settings-sticky-${width}.png`)});
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (process.env.SEO_SCREENSHOTS) await page.screenshot({path: path.join(process.env.SEO_SCREENSHOTS, `seo-settings-${width}.png`), fullPage: true});
+    }
+    await page.setViewportSize({width: 1440, height: 1000});
+    await save.click();
+    await unsaved.waitFor({state: 'detached'});
+    assert.equal(await save.getAttribute('aria-disabled'), 'true');
+    assert.equal(await page.getByText('SEO-instellingen opgeslagen.', {exact: true}).count(), 0, 'No saved banner');
     await page.reload();
     assert.equal(await page.locator('textarea[name="metadescription"]').inputValue(), 'Updated in sidebar');
     const arbitrary = await page.evaluate(async () => await window.panel.api.patch('seo/global', {content: {metadescription: 'Updated in sidebar', email: 'attacker@example.test', title: 'Changed'}}));
@@ -43,10 +74,15 @@ const {spawn} = require('node:child_process');
     assert.doesNotMatch(fs.readFileSync(path.join(temporary, 'content/site.txt'), 'utf8'), /attacker@example.test|Title: Changed/, 'Save endpoint ignores non-SEO keys');
     await page.getByRole('link', {name: 'Verkeer', exact: true}).click();
     await page.getByRole('status').filter({hasText: 'automatisch beschikbaar'}).waitFor();
+    assert.equal(await page.getByRole('button', {name: 'Vernieuwen', exact: true}).count(), 0);
+    assert.equal(await page.getByRole('button', {name: 'Ontkoppelen', exact: true}).count(), 0);
+    assert.equal(await page.getByRole('link', {name: 'Open Google Search Console', exact: true}).getAttribute('data-variant'), 'filled');
     assert.equal(await page.getByRole('link', {name: 'Verkeer (deprecated)', exact: true}).count(), 0, 'No traffic dependency');
     await page.request.get(`${base}/fixture/connect`);
     await page.reload();
     await page.getByRole('heading', {name: 'Zoekopdrachten', exact: true}).waitFor();
+    assert.equal(await page.getByRole('button', {name: 'Vernieuwen', exact: true}).getAttribute('data-variant'), 'filled');
+    assert.equal(await page.getByRole('button', {name: 'Ontkoppelen', exact: true}).getAttribute('data-theme'), 'negative');
     assert.equal(await page.locator('.traffic-chart svg').count(), 4);
     assert.equal(await page.evaluate(() => window.pwned), undefined);
     for (const days of [7, 90, 30]) {
@@ -83,6 +119,10 @@ const {spawn} = require('node:child_process');
       page.getByRole('button', {name: 'Ontkoppelen', exact: true}).click(),
     ]);
     await page.getByRole('button', {name: 'Koppelen met Google', exact: true}).waitFor();
+    assert.equal(await page.getByRole('button', {name: 'Vernieuwen', exact: true}).count(), 0);
+    assert.equal(await page.getByRole('button', {name: 'Ontkoppelen', exact: true}).count(), 0);
+    assert.equal(await page.getByRole('button', {name: 'Koppelen met Google', exact: true}).getAttribute('data-variant'), 'filled');
+    if (process.env.SEO_SCREENSHOTS) await page.screenshot({path: path.join(process.env.SEO_SCREENSHOTS, 'seo-traffic-disconnected.png'), fullPage: true});
     let authorization;
     await page.route('https://accounts.google.com/**', route => {authorization = route.request().url(); return route.fulfill({body: 'Fictional OAuth'});});
     await page.getByRole('button', {name: 'Koppelen met Google', exact: true}).click();

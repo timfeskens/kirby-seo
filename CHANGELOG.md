@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.17 — 2026-10-29
+
+- Place the global SEO title, save button and unsaved-changes indicator in a
+  sticky header using Kirby's filled button and notice theme colors; remove
+  the saved confirmation banner.
+- Split global settings and previews/search performance into responsive columns
+  while preserving shared form values and live previews.
+- Hide refresh/disconnect controls when Search Console needs connecting, use
+  filled Kirby buttons and add spacing around connection guidance.
+- Test the sticky header, responsive columns, save state and connection controls
+  in the real Panel at desktop and mobile widths.
+
 ## 0.1.16 — 2026-10-29
 
 - Add admin-only **SEO** and **Verkeer** sidebar areas without requiring a site

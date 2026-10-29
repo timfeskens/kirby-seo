@@ -24,7 +24,8 @@ panel.plugin("timfeskens/seo-dashboard", {
             : Number(value).toLocaleString("nl-NL", { maximumFractionDigits: key === "position" ? 1 : 0 });
         },
         button(h, label, action, icon = "refresh") {
-          return h("k-button", { props: { icon, disabled: this.busy }, on: { click: () => this.manage(action) } }, label);
+          const theme = action === "connect" || action === "property" ? "positive" : action === "disconnect" ? "negative" : undefined;
+          return h("k-button", { props: { icon, variant: "filled", theme, disabled: this.busy }, on: { click: () => this.manage(action) } }, label);
         },
         table(h, title, label, rows) {
           const columns = [["label", label], ["clicks", "Klikken"], ["impressions", "Vertoningen"], ["ctr", "CTR"], ["position", "Positie"]];
@@ -70,13 +71,14 @@ panel.plugin("timfeskens/seo-dashboard", {
           error: ({ apiDisabled: "Schakel de Search Console API in voor het Google Cloud-project.", reconnect: "De Google-koppeling is verlopen of ingetrokken. Koppel je account opnieuw.", accessDenied: "Je Google-account heeft geen toegang tot deze property. Controleer de rechten of kies een andere property.", quota: "De Google API-limiet is bereikt. Probeer het later opnieuw." })[r.reason] || "Zoekgegevens zijn tijdelijk niet beschikbaar. Controleer de koppeling en probeer het opnieuw.",
         };
         const properties = this.properties || r.properties;
+        const needsConnection = ["credentials", "disconnected"].includes(r.status) || r.reason === "reconnect";
         return h("k-panel-inside", { class: "timfeskens-traffic-view" }, [
           h("k-header", "Verkeer · Google Search Console"),
-          h("div", { class: "traffic-actions" }, [
-            h("k-button", { props: { icon: "refresh", disabled: this.busy }, on: { click: () => window.location.reload() } }, "Vernieuwen"),
+          !needsConnection ? h("div", { class: "traffic-actions" }, [
+            h("k-button", { props: { icon: "refresh", variant: "filled", disabled: this.busy }, on: { click: () => window.location.reload() } }, "Vernieuwen"),
             ["connected", "property"].includes(r.status) || r.reason === "accessDenied" ? this.button(h, "Property kiezen", "properties", "settings") : null,
             ["connected", "property", "error"].includes(r.status) ? this.button(h, "Ontkoppelen", "disconnect", "cancel") : null,
-          ]),
+          ]) : null,
           h("nav", { class: "traffic-period", attrs: { "aria-label": "Rapportperiode" } }, [7, 30, 90].map(days =>
             h("k-link", { props: { to: `traffic/${days}` }, attrs: { "aria-current": r.days === days ? "page" : null } }, `Laatste ${days} dagen`))),
           h("p", { class: "traffic-intro" }, "Organische Google-zoekresultaten (web), geen websitebezoeken of advertentieverkeer. Google verwerkt gegevens met vertraging; de laatste drie dagen zijn uitgesloten. Datums volgen de Pacific-tijdzone van Search Console. Rapporten worden maximaal een uur gecachet."),
@@ -105,7 +107,7 @@ panel.plugin("timfeskens/seo-dashboard", {
             this.table(h, "Per dag", "Datum", r.daily),
             h("p", { class: "traffic-intro" }, "Tabellen tonen maximaal 100 toprijen. Google verbergt sommige zoekopdrachten om privacyredenen; tabelrijen tellen daarom niet altijd op tot het totaal. Totalen en daggrafieken worden afzonderlijk opgevraagd, CTR en positie worden door Google berekend."),
           ]) : null,
-          h("p", { class: "traffic-intro" }, [h("a", { attrs: { href: "https://search.google.com/search-console", target: "_blank", rel: "noopener noreferrer" } }, "Open Google Search Console")]),
+          h("p", { class: "traffic-external" }, [h("k-button", { props: { link: "https://search.google.com/search-console", target: "_blank", rel: "noopener noreferrer", icon: "url", variant: "filled" } }, "Open Google Search Console")]),
         ]);
       },
     },

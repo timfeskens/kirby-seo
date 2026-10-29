@@ -89,7 +89,9 @@ Use your actual domain. For multiple languages or custom canonical URLs, see
 ### 5. Set your defaults and check the output
 
 1. Open **SEO** in the sidebar and set your title pattern,
-   description, social image and social profiles, then choose **Save SEO settings**.
+   description, social image and social profiles, then choose **Save settings**
+   in the sticky header. Settings and previews appear side by side on desktop
+   and stack on narrow screens.
 2. Open a page’s **SEO** tab to override those defaults where needed.
 3. Check the page source for one title and canonical URL, then visit `/sitemap.xml`
    and `/robots.txt`. Remove competing sitemap/robots routes if necessary.

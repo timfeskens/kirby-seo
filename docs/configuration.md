@@ -13,7 +13,8 @@ social profiles, robots selections and file references. Remove the optional
 no content migration is needed. Page SEO tabs are unchanged. The global editor
 validates and serializes with Kirby fields, allows only SEO keys, preserves
 unrelated site fields, respects site update permission and existing edit locks,
-and saves on explicit **Save SEO settings**, not automatically on input.
+and saves on explicit **Save settings** in the sticky header, not automatically
+on input. Settings and previews/search performance use responsive columns.
 
 Search Console configuration consists of `searchConsole.credentials` (either
 the client ID/secret directly or Google's `web` wrapper), `searchConsole.tokenPath`

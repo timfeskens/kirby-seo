@@ -331,7 +331,8 @@ panel.plugin("timfeskens/seo-dashboard", {
             : Number(value).toLocaleString("nl-NL", { maximumFractionDigits: key === "position" ? 1 : 0 });
         },
         button(h, label, action, icon = "refresh") {
-          return h("k-button", { props: { icon, disabled: this.busy }, on: { click: () => this.manage(action) } }, label);
+          const theme = action === "connect" || action === "property" ? "positive" : action === "disconnect" ? "negative" : undefined;
+          return h("k-button", { props: { icon, variant: "filled", theme, disabled: this.busy }, on: { click: () => this.manage(action) } }, label);
         },
         table(h, title, label, rows) {
           const columns = [["label", label], ["clicks", "Klikken"], ["impressions", "Vertoningen"], ["ctr", "CTR"], ["position", "Positie"]];
@@ -377,13 +378,14 @@ panel.plugin("timfeskens/seo-dashboard", {
           error: ({ apiDisabled: "Schakel de Search Console API in voor het Google Cloud-project.", reconnect: "De Google-koppeling is verlopen of ingetrokken. Koppel je account opnieuw.", accessDenied: "Je Google-account heeft geen toegang tot deze property. Controleer de rechten of kies een andere property.", quota: "De Google API-limiet is bereikt. Probeer het later opnieuw." })[r.reason] || "Zoekgegevens zijn tijdelijk niet beschikbaar. Controleer de koppeling en probeer het opnieuw.",
         };
         const properties = this.properties || r.properties;
+        const needsConnection = ["credentials", "disconnected"].includes(r.status) || r.reason === "reconnect";
         return h("k-panel-inside", { class: "timfeskens-traffic-view" }, [
           h("k-header", "Verkeer · Google Search Console"),
-          h("div", { class: "traffic-actions" }, [
-            h("k-button", { props: { icon: "refresh", disabled: this.busy }, on: { click: () => window.location.reload() } }, "Vernieuwen"),
+          !needsConnection ? h("div", { class: "traffic-actions" }, [
+            h("k-button", { props: { icon: "refresh", variant: "filled", disabled: this.busy }, on: { click: () => window.location.reload() } }, "Vernieuwen"),
             ["connected", "property"].includes(r.status) || r.reason === "accessDenied" ? this.button(h, "Property kiezen", "properties", "settings") : null,
             ["connected", "property", "error"].includes(r.status) ? this.button(h, "Ontkoppelen", "disconnect", "cancel") : null,
-          ]),
+          ]) : null,
           h("nav", { class: "traffic-period", attrs: { "aria-label": "Rapportperiode" } }, [7, 30, 90].map(days =>
             h("k-link", { props: { to: `traffic/${days}` }, attrs: { "aria-current": r.days === days ? "page" : null } }, `Laatste ${days} dagen`))),
           h("p", { class: "traffic-intro" }, "Organische Google-zoekresultaten (web), geen websitebezoeken of advertentieverkeer. Google verwerkt gegevens met vertraging; de laatste drie dagen zijn uitgesloten. Datums volgen de Pacific-tijdzone van Search Console. Rapporten worden maximaal een uur gecachet."),
@@ -412,7 +414,7 @@ panel.plugin("timfeskens/seo-dashboard", {
             this.table(h, "Per dag", "Datum", r.daily),
             h("p", { class: "traffic-intro" }, "Tabellen tonen maximaal 100 toprijen. Google verbergt sommige zoekopdrachten om privacyredenen; tabelrijen tellen daarom niet altijd op tot het totaal. Totalen en daggrafieken worden afzonderlijk opgevraagd, CTR en positie worden door Google berekend."),
           ]) : null,
-          h("p", { class: "traffic-intro" }, [h("a", { attrs: { href: "https://search.google.com/search-console", target: "_blank", rel: "noopener noreferrer" } }, "Open Google Search Console")]),
+          h("p", { class: "traffic-external" }, [h("k-button", { props: { link: "https://search.google.com/search-console", target: "_blank", rel: "noopener noreferrer", icon: "url", variant: "filled" } }, "Open Google Search Console")]),
         ]);
       },
     },
@@ -424,7 +426,7 @@ panel.plugin("timfeskens/seo-settings", {
   components: {
     "timfeskens-global-seo-view": {
       props: { fields: Object, value: Object, language: String, languages: Array },
-      data() { return { content: { ...this.value }, busy: false, dirty: false, error: false, saved: false }; },
+      data() { return { content: { ...this.value }, busy: false, dirty: false, error: false }; },
       provide() { return { seoSettingsValues: () => this.content }; },
       watch: { value(value) { this.content = { ...value }; this.dirty = false; } },
       mounted() { window.addEventListener("beforeunload", this.warnUnsaved); },
@@ -432,10 +434,10 @@ panel.plugin("timfeskens/seo-settings", {
       methods: {
         warnUnsaved(event) { if (this.dirty) { event.preventDefault(); event.returnValue = ""; } },
         async save() {
-          this.busy = true; this.error = false; this.saved = false;
+          this.busy = true; this.error = false;
           try {
             const result = await this.$api.patch("seo/global", { content: this.content });
-            this.content = result.value; this.dirty = false; this.saved = true;
+            this.content = result.value; this.dirty = false;
           } catch (_) { this.error = true; }
           finally { this.busy = false; }
         },
@@ -443,8 +445,17 @@ panel.plugin("timfeskens/seo-settings", {
       render(h) {
         const nl = this.$panel?.translation?.code === "nl";
         const text = (en, dutch) => nl ? dutch : en;
+        const previewTypes = ["timfeskens-seo-preview", "timfeskens-seo-analytics"];
+        const fields = preview => Object.fromEntries(Object.entries(this.fields || {}).filter(([, field]) => previewTypes.includes(field.type) === preview));
+        const input = value => { this.content = { ...this.content, ...value }; this.dirty = true; };
         return h("k-panel-inside", { class: "timfeskens-global-seo-view" }, [
-          h("k-header", text("Global SEO settings", "Globale SEO-instellingen")),
+          h("k-header", { class: "seo-settings-header" }, [
+            text("Global SEO settings", "Globale SEO-instellingen"),
+            h("div", { slot: "buttons", class: "seo-settings-actions" }, [
+              h("k-button", { props: { icon: this.busy ? "loader" : "check", variant: "filled", theme: "positive", disabled: this.busy || !this.dirty }, on: { click: this.save } }, text("Save settings", "Instellingen opslaan")),
+              this.dirty ? h("span", { class: "seo-settings-unsaved", attrs: { "data-theme": "notice", role: "status" } }, text("Unsaved changes", "Niet-opgeslagen wijzigingen")) : null,
+            ]),
+          ]),
           h("p", { class: "seo-settings-help" }, text("Global defaults for the entire website. Individual pages can override these settings.", "Standaardinstellingen voor de hele website. Afzonderlijke pagina’s kunnen hiervan afwijken.")),
           this.languages?.length ? h("label", { class: "seo-settings-help" }, [
             text("Language", "Taal") + " ",
@@ -454,16 +465,13 @@ panel.plugin("timfeskens/seo-settings", {
               window.location.assign(`${window.location.pathname}?language=${encodeURIComponent(event.target.value)}`);
             } } }, this.languages.map(language => h("option", { domProps: { value: language.code } }, language.name))),
           ]) : null,
-          h("div", { class: "seo-settings-actions" }, [
-            h("k-button", { props: { icon: "check", disabled: this.busy || !this.dirty }, on: { click: this.save } }, text("Save SEO settings", "SEO-instellingen opslaan")),
-            this.dirty ? h("span", text("Unsaved changes", "Niet-opgeslagen wijzigingen")) : null,
-          ]),
           this.error ? h("p", { attrs: { role: "alert" } }, text("Saving failed. Check the fields, permissions and site lock, then retry.", "Opslaan mislukt. Controleer de velden, rechten en sitevergrendeling en probeer opnieuw.")) : null,
-          this.saved ? h("p", { attrs: { role: "status" } }, text("SEO settings saved.", "SEO-instellingen opgeslagen.")) : null,
-          h("k-form", { props: { fields: this.fields, value: this.content, disabled: this.busy }, on: {
-            input: value => { this.content = value; this.dirty = true; this.saved = false; },
-            submit: this.save,
-          } }),
+          h("k-form", { props: { value: this.content, disabled: this.busy }, on: {
+             submit: this.save,
+          } }, [h("div", { class: "seo-settings-columns" }, [
+            h("k-fieldset", { class: "seo-settings-column", props: { fields: fields(false), value: this.content, disabled: this.busy }, on: { input, submit: this.save } }),
+            h("k-fieldset", { class: "seo-settings-column seo-settings-previews", props: { fields: fields(true), value: this.content, disabled: this.busy }, on: { input, submit: this.save } }),
+          ])]),
         ]);
       },
     },
